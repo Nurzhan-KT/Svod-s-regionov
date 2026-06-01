@@ -647,15 +647,17 @@ function fillTCities(){
   const reg=document.getElementById('tReg').value;
   fillCitySelect(document.getElementById('tCity'),reg);
   const isDRTR=reg==='ДРТР';
+  const showLoc=reg&&!isDRTR;
   document.getElementById('tCityLabel').textContent=isDRTR?'Город *':'Цех *';
-  document.getElementById('tLocationWrap').style.display=isDRTR||!reg?'none':'';
+  document.getElementById('tLocationWrap').style.display=showLoc?'flex':'none';
 }
 function fillICities(){
   const reg=document.getElementById('iReg').value;
   fillCitySelect(document.getElementById('iCity'),reg);
   const isDRTR=reg==='ДРТР';
+  const showLoc=reg&&!isDRTR;
   document.getElementById('iCityLabel').textContent=isDRTR?'Город *':'Цех *';
-  document.getElementById('iLocationWrap').style.display=isDRTR||!reg?'none':'';
+  document.getElementById('iLocationWrap').style.display=showLoc?'flex':'none';
 }
 
 // ── TRANSPORT ──
