@@ -850,10 +850,10 @@ function exportI(){
 
 // ── STATUS ──
 function renderStatus(){
-  renderStatusPanel('stT',RT,tData);
-  renderStatusPanel('stI',RI,iData);
+  renderStatusPanel('stT',RT,tData,true);
+  renderStatusPanel('stI',RI,iData,false);
 }
-function renderStatusPanel(cid,regions,data){
+function renderStatusPanel(cid,regions,data,showLimits){
   document.getElementById(cid).innerHTML=regions.map(reg=>{
     const n=data.filter(r=>r.region===reg).length,ok=n>0;
     const lim=LIMITS[reg];
@@ -861,7 +861,7 @@ function renderStatusPanel(cid,regions,data){
       <span>${ok?'✓':'✗'}</span>
       <div style="display:flex;flex-direction:column;line-height:1.3">
         <span>${reg}</span>
-        ${lim!=null?`<span style="font-size:10px;opacity:.7">лимит: ${lim}</span>`:''}
+        ${showLimits&&lim!=null?`<span style="font-size:10px;opacity:.7">лимит: ${lim}</span>`:''}
       </div>
       ${ok?`<span class="cntbubble">${n}</span>`:''}
     </div>`;
