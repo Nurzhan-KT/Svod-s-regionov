@@ -159,22 +159,22 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <p class="msub">Укажите ваши данные для входа.<br>Они будут отображаться в записях.</p>
     <div class="mf"><label>ФИО</label><input id="lFio" placeholder="Фамилия Имя Отчество" /></div>
     <div class="mf">
-      <label>Роль</label>
-      <select id="lRole" onchange="toggleAdminRegions()">
-        <option value="">— Выберите роль —</option>
-        <option value="transport">Ответственный по автотранспорту</option>
-        <option value="inventory">Материально-ответственное лицо (МОЛ)</option>
-        <option value="admin">Администратор / Сводная отчётность</option>
-      </select>
-    </div>
-    <div class="mf">
       <label>Регион</label>
-      <select id="lRegion">
+      <select id="lRegion" onchange="onLoginRegionChange()">
         <option value="">— Выберите регион —</option>
         <option>Центр</option><option>Юг</option><option>Запад</option>
         <option>Алматы</option><option>Восток</option><option>Север</option>
         <option>ДРТР</option><option value="HQ">РИПС</option>
-        <option value="СТиОУП" class="admin-opt" style="display:none">СТиОУП</option>
+        <option value="СТиОУП" id="optStioup" style="display:none">СТиОУП</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Роль</label>
+      <select id="lRole" onchange="onLoginRoleChange()">
+        <option value="">— Выберите роль —</option>
+        <option value="transport">Ответственный по автотранспорту</option>
+        <option value="inventory" id="optInventory">Материально-ответственное лицо (МОЛ)</option>
+        <option value="admin">Администратор / Сводная отчётность</option>
       </select>
     </div>
     <button class="btn-login" onclick="doLogin()">Войти в систему</button>
@@ -265,7 +265,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option value="2026">2026</option><option value="2027">2027</option>
               </select>
             </div>
-            <div class="ff">
+            <div class="ff" id="tRegWrap">
               <label>Регион *</label>
               <select id="tReg" required onchange="fillTCities()">
                 <option value="">— Выберите регион —</option>
@@ -273,6 +273,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Алматы</option><option>Восток</option><option>Север</option>
                 <option>ДРТР</option><option>СТиОУП</option>
               </select>
+              <div id="tRegStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
             </div>
             <div class="ff">
               <label id="tCityLabel">Город *</label>
@@ -418,6 +419,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Алматы</option><option>Восток</option><option>Север</option>
                 <option>СТиОУП</option>
               </select>
+              <div id="iRegStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
             </div>
             <div class="ff">
               <label id="iCityLabel">Город *</label>
@@ -557,8 +559,33 @@ function showApp(){
   document.getElementById('tabI').style.display=showI?'':'none';
   if(!showT){switchTab('I')}else{switchTab('T')}
 
-  if(RT.includes(user.region)){document.getElementById('tReg').value=user.region;fillTCities()}
-  if(RI.includes(user.region)){document.getElementById('iReg').value=user.region;fillICities()}
+  const isAdmin=user.role==='admin'||isHQ();
+  // Транспорт: регион
+  if(isAdmin){
+    document.getElementById('tReg').style.display='';
+    document.getElementById('tRegStatic').style.display='none';
+    if(RT.includes(user.region)){document.getElementById('tReg').value=user.region;fillTCities()}
+  } else {
+    document.getElementById('tReg').style.display='none';
+    document.getElementById('tReg').removeAttribute('required');
+    const st=document.getElementById('tRegStatic');
+    st.style.display='';st.textContent=user.region;
+    document.getElementById('tReg').value=user.region;
+    fillTCities();
+  }
+  // ТМЗ: регион
+  if(isAdmin){
+    document.getElementById('iReg').style.display='';
+    document.getElementById('iRegStatic').style.display='none';
+    if(RI.includes(user.region)){document.getElementById('iReg').value=user.region;fillICities()}
+  } else {
+    document.getElementById('iReg').style.display='none';
+    document.getElementById('iReg').removeAttribute('required');
+    const si=document.getElementById('iRegStatic');
+    si.style.display='';si.textContent=user.region;
+    document.getElementById('iReg').value=user.region;
+    fillICities();
+  }
 
   const now=new Date(),m=now.getMonth()+1,y=now.getFullYear().toString();
   ['tMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
@@ -637,25 +664,25 @@ function rebuildTHead(){
 }
 
 // ── CITY FILL ──
-function fillCitySelect(sel,region){
+function fillCitySelect(sel,region,label){
   sel.innerHTML='';
   if(!region||!CITIES[region]){sel.innerHTML='<option value="">— Сначала выберите регион —</option>';return}
-  const def=document.createElement('option');def.value='';def.textContent='— Выберите город —';sel.appendChild(def);
+  const def=document.createElement('option');def.value='';def.textContent=label||'— Выберите город —';sel.appendChild(def);
   CITIES[region].forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});
 }
 function fillTCities(){
   const reg=document.getElementById('tReg').value;
-  fillCitySelect(document.getElementById('tCity'),reg);
   const isDRTR=reg==='ДРТР';
   const showLoc=reg&&!isDRTR;
+  fillCitySelect(document.getElementById('tCity'),reg,isDRTR?'— Выберите город —':'— Выберите цех —');
   document.getElementById('tCityLabel').textContent=isDRTR?'Город *':'Цех *';
   document.getElementById('tLocationWrap').style.display=showLoc?'flex':'none';
 }
 function fillICities(){
   const reg=document.getElementById('iReg').value;
-  fillCitySelect(document.getElementById('iCity'),reg);
   const isDRTR=reg==='ДРТР';
   const showLoc=reg&&!isDRTR;
+  fillCitySelect(document.getElementById('iCity'),reg,isDRTR?'— Выберите город —':'— Выберите цех —');
   document.getElementById('iCityLabel').textContent=isDRTR?'Город *':'Цех *';
   document.getElementById('iLocationWrap').style.display=showLoc?'flex':'none';
 }
@@ -910,15 +937,25 @@ function toast(msg,type='info'){
   _tt=setTimeout(()=>el.classList.remove('show'),3000);
 }
 
-// ── ADMIN REGION TOGGLE ──
-function toggleAdminRegions(){
+// ── LOGIN FIELD LOGIC ──
+function onLoginRegionChange(){
+  const reg=document.getElementById('lRegion').value;
+  const optInv=document.getElementById('optInventory');
   const role=document.getElementById('lRole').value;
-  const opt=document.querySelector('#lRegion option[value="СТиОУП"]');
+  // ДРТР — нет роли МОЛ
+  if(optInv){
+    optInv.style.display=reg==='ДРТР'?'none':'';
+    if(reg==='ДРТР'&&role==='inventory')document.getElementById('lRole').value='';
+  }
+  onLoginRoleChange();
+}
+function onLoginRoleChange(){
+  const role=document.getElementById('lRole').value;
+  const opt=document.getElementById('optStioup');
   if(!opt)return;
   opt.style.display=role==='admin'?'':'none';
-  if(role!=='admin'&&document.getElementById('lRegion').value==='СТиОУП'){
+  if(role!=='admin'&&document.getElementById('lRegion').value==='СТиОУП')
     document.getElementById('lRegion').value='';
-  }
 }
 
 // ── BOOT ──
