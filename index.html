@@ -165,7 +165,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         <option>Центр</option><option>Юг</option><option>Запад</option>
         <option>Алматы</option><option>Восток</option><option>Север</option>
         <option>ДРТР</option><option value="HQ">РИПС</option>
-        <option value="СТиОУП" id="optStioup" style="display:none">СТиОУП</option>
+        <option value="СТиОУП">СТиОУП</option>
       </select>
     </div>
     <div class="mf">
@@ -174,7 +174,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         <option value="">— Выберите роль —</option>
         <option value="transport">Ответственный по автотранспорту</option>
         <option value="inventory" id="optInventory">Материально-ответственное лицо (МОЛ)</option>
-        <option value="admin">Администратор / Сводная отчётность</option>
+        <option value="admin" id="optAdmin" style="display:none">Администратор / Сводная отчётность</option>
       </select>
     </div>
     <button class="btn-login" onclick="doLogin()">Войти в систему</button>
@@ -943,23 +943,18 @@ function toast(msg,type='info'){
 // ── LOGIN FIELD LOGIC ──
 function onLoginRegionChange(){
   const reg=document.getElementById('lRegion').value;
+  const role=document.getElementById('lRole').value;
   const optInv=document.getElementById('optInventory');
-  const role=document.getElementById('lRole').value;
-  // ДРТР — нет роли МОЛ
-  if(optInv){
-    optInv.style.display=reg==='ДРТР'?'none':'';
-    if(reg==='ДРТР'&&role==='inventory')document.getElementById('lRole').value='';
-  }
-  onLoginRoleChange();
+  const optAdmin=document.getElementById('optAdmin');
+  // Администратор — только РИПС
+  optAdmin.style.display=reg==='HQ'?'':'none';
+  // МОЛ — не для ДРТР и СТиОУП
+  optInv.style.display=(reg==='ДРТР'||reg==='СТиОУП')?'none':'';
+  // Сбросить роль если стала недоступна
+  if(role==='admin'&&reg!=='HQ')document.getElementById('lRole').value='';
+  if(role==='inventory'&&(reg==='ДРТР'||reg==='СТиОУП'))document.getElementById('lRole').value='';
 }
-function onLoginRoleChange(){
-  const role=document.getElementById('lRole').value;
-  const opt=document.getElementById('optStioup');
-  if(!opt)return;
-  opt.style.display=role==='admin'?'':'none';
-  if(role!=='admin'&&document.getElementById('lRegion').value==='СТиОУП')
-    document.getElementById('lRegion').value='';
-}
+function onLoginRoleChange(){}
 
 // ── BOOT ──
 load();
