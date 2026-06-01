@@ -165,7 +165,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         <option>Центр</option><option>Юг</option><option>Запад</option>
         <option>Алматы</option><option>Восток</option><option>Север</option>
         <option>ДРТР</option><option value="HQ">РИПС</option>
-        <option value="СТиОУП">СТиОУП</option>
+        <option value="СТиОУП" id="optStioup" style="display:none">СТиОУП</option>
       </select>
     </div>
     <div class="mf">
@@ -781,7 +781,7 @@ function exportT(){
   const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
 
-  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Внёс','Дата'];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Кто вносил данные','Дата внесения'];
   const colW=[4,14,8,12,16,22,28,12,30,14,14,12,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
 
@@ -868,7 +868,7 @@ function exportI(){
   const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const sheet=[
-    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Внёс','Дата'],
+    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Кто вносил данные','Дата внесения'],
     ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.mol,r.equip,r.qtyNew??r.qty??0,r.qtyUsed??0,r.by,r.ts])
   ];
   const ws=XLSX.utils.aoa_to_sheet(sheet);
@@ -953,8 +953,18 @@ function onLoginRegionChange(){
   // Сбросить роль если стала недоступна
   if(role==='admin'&&reg!=='HQ')document.getElementById('lRole').value='';
   if(role==='inventory'&&(reg==='ДРТР'||reg==='СТиОУП'))document.getElementById('lRole').value='';
+  // СТиОУП скрыть если роль не admin
+  if(reg!=='HQ')document.getElementById('optStioup').style.display='none';
+  onLoginRoleChange();
 }
-function onLoginRoleChange(){}
+function onLoginRoleChange(){
+  const role=document.getElementById('lRole').value;
+  const reg=document.getElementById('lRegion').value;
+  const optStioup=document.getElementById('optStioup');
+  // СТиОУП — только для администратора РИПС
+  optStioup.style.display=role==='admin'?'':'none';
+  if(role!=='admin'&&reg==='СТиОУП')document.getElementById('lRegion').value='HQ';
+}
 
 // ── BOOT ──
 load();
