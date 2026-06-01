@@ -159,22 +159,22 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <p class="msub">Укажите ваши данные для входа.<br>Они будут отображаться в записях.</p>
     <div class="mf"><label>ФИО</label><input id="lFio" placeholder="Фамилия Имя Отчество" /></div>
     <div class="mf">
+      <label>Роль</label>
+      <select id="lRole" onchange="toggleAdminRegions()">
+        <option value="">— Выберите роль —</option>
+        <option value="transport">Ответственный по автотранспорту</option>
+        <option value="inventory">Материально-ответственное лицо (МОЛ)</option>
+        <option value="admin">Администратор / Сводная отчётность</option>
+      </select>
+    </div>
+    <div class="mf">
       <label>Регион</label>
       <select id="lRegion">
         <option value="">— Выберите регион —</option>
         <option>Центр</option><option>Юг</option><option>Запад</option>
         <option>Алматы</option><option>Восток</option><option>Север</option>
         <option>ДРТР</option><option value="HQ">РИПС</option>
-      </select>
-    </div>
-    <div class="mf">
-      <label>Роль</label>
-      <select id="lRole">
-        <option value="">— Выберите роль —</option>
-        <option value="transport">Ответственный по автотранспорту</option>
-        <option value="inventory">Материально-ответственное лицо (МОЛ)</option>
-        <option value="both">Оба направления</option>
-        <option value="admin">Администратор / Сводная отчётность</option>
+        <option value="СТиОУП" class="admin-opt" style="display:none">СТиОУП</option>
       </select>
     </div>
     <button class="btn-login" onclick="doLogin()">Войти в систему</button>
@@ -270,12 +270,17 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
               <select id="tReg" required onchange="fillTCities()">
                 <option value="">— Выберите регион —</option>
                 <option>Центр</option><option>Юг</option><option>Запад</option>
-                <option>Алматы</option><option>Восток</option><option>Север</option><option>ДРТР</option>
+                <option>Алматы</option><option>Восток</option><option>Север</option>
+                <option>ДРТР</option><option>СТиОУП</option>
               </select>
             </div>
             <div class="ff">
-              <label>Город *</label>
+              <label id="tCityLabel">Город *</label>
               <select id="tCity" required><option value="">— Сначала выберите регион —</option></select>
+            </div>
+            <div class="ff" id="tLocationWrap" style="display:none">
+              <label>Местонахождение</label>
+              <input id="tLocation" placeholder="Введите местонахождение" />
             </div>
             <div class="ff">
               <label>ФИО водителя *</label>
@@ -354,14 +359,14 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <table class="dt">
             <thead>
               <tr id="tHeadRow">
-                <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО водителя</th>
+                <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
                 <th>Таб. №</th><th>Должность</th><th>Топливо</th>
                 <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
                 <th>Внёс</th><th>Дата</th><th></th>
               </tr>
             </thead>
             <tbody id="tbT">
-              <tr><td colspan="14"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
+              <tr><td colspan="15"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -411,11 +416,16 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option value="">— Выберите регион —</option>
                 <option>Центр</option><option>Юг</option><option>Запад</option>
                 <option>Алматы</option><option>Восток</option><option>Север</option>
+                <option>СТиОУП</option>
               </select>
             </div>
             <div class="ff">
-              <label>Город *</label>
+              <label id="iCityLabel">Город *</label>
               <select id="iCity" required><option value="">— Сначала выберите регион —</option></select>
+            </div>
+            <div class="ff" id="iLocationWrap" style="display:none">
+              <label>Местонахождение</label>
+              <input id="iLocation" placeholder="Введите местонахождение" />
             </div>
             <div class="ff">
               <label>ФИО МОЛ *</label>
@@ -456,12 +466,12 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         <div class="twrap">
           <table class="dt">
             <thead><tr>
-              <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО МОЛ</th>
+              <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО МОЛ</th>
               <th>Наименование оборудования</th><th>Кол-во новые</th><th>Кол-во б/у</th>
               <th>Внёс</th><th>Дата</th><th></th>
             </tr></thead>
             <tbody id="tbI">
-              <tr><td colspan="11"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>
+              <tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -480,11 +490,13 @@ const CITIES={
   'Запад':['Атырау','Актау','Актобе','Уральск'],
   'Север':['Костанай','Петропавловск'],
   'Восток':['Семей','Павлодар','Өскемен'],
-  'Алматы':['Алматы','Талдыкорган']
+  'Алматы':['Алматы','Талдыкорган'],
+  'СТиОУП':['Алматы','Астана']
 };
 CITIES['ДРТР']=Object.values(CITIES).flat();
-const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР'];
-const RI=['Центр','Юг','Запад','Алматы','Восток','Север'];
+const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР','СТиОУП'];
+const RI=['Центр','Юг','Запад','Алматы','Восток','Север','СТиОУП'];
+const LIMITS={'Запад':38,'Север':20,'Восток':31,'Центр':86,'Алматы':62,'Юг':27,'ДРТР':15,'СТиОУП':1};
 const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const FUELS=['Бензин','Газ','Электричество'];
 const WW_LABELS={'5':'5-дневная','6':'6-дневная'};
@@ -538,6 +550,12 @@ function showApp(){
   document.getElementById('hRegion').textContent=user.region==='HQ'?'РИПС':user.region;
   document.getElementById('hqBadge').style.display=isHQ()?'inline-block':'none';
   document.getElementById('btnTariff').style.display=isHQ()?'inline-flex':'none';
+
+  const showT=user.role!=='inventory';
+  const showI=user.role!=='transport';
+  document.getElementById('tabT').style.display=showT?'':'none';
+  document.getElementById('tabI').style.display=showI?'':'none';
+  if(!showT){switchTab('I')}else{switchTab('T')}
 
   if(RT.includes(user.region)){document.getElementById('tReg').value=user.region;fillTCities()}
   if(RI.includes(user.region)){document.getElementById('iReg').value=user.region;fillICities()}
@@ -606,15 +624,14 @@ function hasTariffs(){
 // Rebuild transport table header (add payout cols for РИПС when tariffs set)
 function rebuildTHead(){
   const hq=isHQ()&&hasTariffs();
-  const colspan=hq?17:14;
+  const colspan=hq?18:15;
   document.getElementById('tHeadRow').innerHTML=`
-    <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО водителя</th>
+    <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
     <th>Таб. №</th><th>Должность</th><th>Топливо</th>
     <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
     <th>Внёс</th><th>Дата</th>
     ${hq?'<th class="col-payout">Тариф (₸)</th><th class="col-payout">Норма дней</th><th class="col-payout">Сумма к выплате (₸)</th>':''}
     <th></th>`;
-  // fix empty-state colspan
   const emp=document.getElementById('tbT').querySelector('td[colspan]');
   if(emp)emp.setAttribute('colspan',colspan);
 }
@@ -626,8 +643,20 @@ function fillCitySelect(sel,region){
   const def=document.createElement('option');def.value='';def.textContent='— Выберите город —';sel.appendChild(def);
   CITIES[region].forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});
 }
-function fillTCities(){fillCitySelect(document.getElementById('tCity'),document.getElementById('tReg').value)}
-function fillICities(){fillCitySelect(document.getElementById('iCity'),document.getElementById('iReg').value)}
+function fillTCities(){
+  const reg=document.getElementById('tReg').value;
+  fillCitySelect(document.getElementById('tCity'),reg);
+  const isDRTR=reg==='ДРТР';
+  document.getElementById('tCityLabel').textContent=isDRTR?'Город *':'Цех *';
+  document.getElementById('tLocationWrap').style.display=isDRTR||!reg?'none':'';
+}
+function fillICities(){
+  const reg=document.getElementById('iReg').value;
+  fillCitySelect(document.getElementById('iCity'),reg);
+  const isDRTR=reg==='ДРТР';
+  document.getElementById('iCityLabel').textContent=isDRTR?'Город *':'Цех *';
+  document.getElementById('iLocationWrap').style.display=isDRTR||!reg?'none':'';
+}
 
 // ── TRANSPORT ──
 function submitT(e){
@@ -640,6 +669,7 @@ function submitT(e){
     year:document.getElementById('tYear').value,
     region:document.getElementById('tReg').value,
     city:document.getElementById('tCity').value,
+    location:document.getElementById('tLocation').value.trim(),
     fio:document.getElementById('tFio').value.trim(),
     tab:document.getElementById('tTab').value.trim(),
     pos:document.getElementById('tPos').value,
@@ -664,6 +694,7 @@ function delT(id){
 function clearTForm(){
   document.getElementById('formT').reset();
   document.getElementById('tCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
+  document.getElementById('tLocation').value='';
   if(RT.includes(user?.region)){document.getElementById('tReg').value=user.region;fillTCities()}
   const now=new Date(),y=now.getFullYear().toString();
   document.getElementById('tMonth').value=now.getMonth()+1;
@@ -676,7 +707,7 @@ function renderT(){
   const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbT');
-  const colspan=showPayout?17:14;
+  const colspan=showPayout?18:15;
   if(!rows.length){
     tb.innerHTML=`<tr><td colspan="${colspan}"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>`;
     return;
@@ -697,6 +728,7 @@ function renderT(){
       <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
       <td><span class="badge badge-b">${r.region}</span></td>
       <td>${r.city}</td>
+      <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
       <td>${r.fio}</td>
       <td><code>${r.tab}</code></td>
       <td style="max-width:200px">${r.pos}</td>
@@ -717,12 +749,12 @@ function exportT(){
   const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
 
-  const headers=['№','Месяц','Год','Регион','Город','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Внёс','Дата'];
-  const colW=[4,14,8,12,16,28,12,30,14,14,12,28,24,18];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Внёс','Дата'];
+  const colW=[4,14,8,12,16,22,28,12,30,14,14,12,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
 
   const sheet=[headers,...rows.map((r,i)=>{
-    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.note||'',r.by,r.ts];
+    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.note||'',r.by,r.ts];
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
@@ -749,6 +781,7 @@ function submitI(e){
     year:document.getElementById('iYear').value,
     region:document.getElementById('iReg').value,
     city:document.getElementById('iCity').value,
+    location:document.getElementById('iLocation').value.trim(),
     mol:document.getElementById('iMol').value.trim(),
     equip:document.getElementById('iEquip').value.trim(),
     qtyNew:parseInt(document.getElementById('iQtyNew').value)||0,
@@ -771,6 +804,7 @@ function delI(id){
 function clearIForm(){
   document.getElementById('formI').reset();
   document.getElementById('iCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
+  document.getElementById('iLocation').value='';
   if(RI.includes(user?.region)){document.getElementById('iReg').value=user.region;fillICities()}
   const now=new Date(),y=now.getFullYear().toString();
   document.getElementById('iMonth').value=now.getMonth()+1;
@@ -781,13 +815,14 @@ function renderI(){
   const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
   document.getElementById('cntI').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbI');
-  if(!rows.length){tb.innerHTML='<tr><td colspan="11"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
+  if(!rows.length){tb.innerHTML='<tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
   tb.innerHTML=rows.map((r,i)=>`
     <tr>
       <td>${i+1}</td>
       <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
       <td><span class="badge badge-b">${r.region}</span></td>
       <td>${r.city}</td>
+      <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
       <td>${r.mol}</td>
       <td>${r.equip}</td>
       <td style="text-align:center;font-weight:600">${r.qtyNew??r.qty??0}</td>
@@ -801,11 +836,11 @@ function exportI(){
   const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const sheet=[
-    ['№','Месяц','Год','Регион','Город','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Внёс','Дата'],
-    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.mol,r.equip,r.qtyNew??r.qty??0,r.qtyUsed??0,r.by,r.ts])
+    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Внёс','Дата'],
+    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.mol,r.equip,r.qtyNew??r.qty??0,r.qtyUsed??0,r.by,r.ts])
   ];
   const ws=XLSX.utils.aoa_to_sheet(sheet);
-  ws['!cols']=[4,14,8,12,16,28,38,13,13,24,18].map(w=>({wch:w}));
+  ws['!cols']=[4,14,8,12,16,22,28,38,13,13,24,18].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Фактические остатки');
   const suf=isHQ()?'все_регионы':user.region;
@@ -821,8 +856,13 @@ function renderStatus(){
 function renderStatusPanel(cid,regions,data){
   document.getElementById(cid).innerHTML=regions.map(reg=>{
     const n=data.filter(r=>r.region===reg).length,ok=n>0;
+    const lim=LIMITS[reg];
     return`<div class="stdot ${ok?'filled':'empty'}">
-      <span>${ok?'✓':'✗'}</span><span>${reg}</span>
+      <span>${ok?'✓':'✗'}</span>
+      <div style="display:flex;flex-direction:column;line-height:1.3">
+        <span>${reg}</span>
+        ${lim!=null?`<span style="font-size:10px;opacity:.7">лимит: ${lim}</span>`:''}
+      </div>
       ${ok?`<span class="cntbubble">${n}</span>`:''}
     </div>`;
   }).join('');
@@ -866,6 +906,17 @@ function toast(msg,type='info'){
   el.textContent=msg;el.className='t-'+type;el.classList.add('show');
   if(_tt)clearTimeout(_tt);
   _tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── ADMIN REGION TOGGLE ──
+function toggleAdminRegions(){
+  const role=document.getElementById('lRole').value;
+  const opt=document.querySelector('#lRegion option[value="СТиОУП"]');
+  if(!opt)return;
+  opt.style.display=role==='admin'?'':'none';
+  if(role!=='admin'&&document.getElementById('lRegion').value==='СТиОУП'){
+    document.getElementById('lRegion').value='';
+  }
 }
 
 // ── BOOT ──
