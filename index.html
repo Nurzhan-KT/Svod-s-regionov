@@ -640,7 +640,10 @@ function saveTariffs(){
     tariffs[stype][fuel][ww]=parseFloat(inp.value)||0;
   });
   localStorage.setItem('kt_tariffs',JSON.stringify(tariffs));
-  rebuildTHead();renderT();
+  // Перезагружаем записи из localStorage чтобы гарантировать актуальность данных
+  tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
+  iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
+  rebuildTHead();renderT();renderI();renderStatus();
   toast('✓ Тарифы сохранены','ok');
 }
 
