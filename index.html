@@ -559,6 +559,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
             <div class="ff">
               <label>Дней отработано *</label>
               <input type="number" id="sDays" min="0" max="31" placeholder="0" required />
+              <small id="wdHintS" style="color:var(--muted);font-size:11.5px;margin-top:3px;min-height:16px;display:block"></small>
             </div>
             <div class="ff">
               <label>Дней командировки</label>
@@ -1583,6 +1584,15 @@ function updateWdHint(){
   const n=calcWorkDays(m,y,ww);
   hint.textContent=n!=null?`Норма рабочих дней в месяце: ${n} (ориентировочно, без учёта переносов)`:'';
 }
+function updateWdHintS(){
+  const m=document.getElementById('sMonth')?.value;
+  const y=document.getElementById('sYear')?.value;
+  const ww=document.querySelector('input[name="sWW"]:checked')?.value;
+  const hint=document.getElementById('wdHintS');
+  if(!hint)return;
+  const n=calcWorkDays(m,y,ww);
+  hint.textContent=n!=null?`Норма рабочих дней в месяце: ${n} (ориентировочно, без учёта переносов)`:'';
+}
 
 // ── TOAST ──
 let _tt=null;
@@ -1635,6 +1645,8 @@ if(_u&&_age<30*60*1000){
 // Working days hint listeners
 ['tMonth','tYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHint));
 document.querySelectorAll('input[name="tWW"]').forEach(r=>r.addEventListener('change',updateWdHint));
+['sMonth','sYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHintS));
+document.querySelectorAll('input[name="sWW"]').forEach(r=>r.addEventListener('change',updateWdHintS));
 </script>
 </body>
 </html>
