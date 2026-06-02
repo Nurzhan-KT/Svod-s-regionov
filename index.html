@@ -365,8 +365,11 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <span>📋</span><span>Сводная таблица — Личный автотранспорт</span>
           <span class="cntbadge" id="cntT">0 зап.</span>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span class="export-note" id="exportNoteT"></span>
+          <select id="viewFilterT" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
+            <option value="all">Все регионы</option>
+          </select>
           <button class="btn btn-green" onclick="exportT()">📥 Выгрузить в Excel</button>
         </div>
       </div>
@@ -521,8 +524,11 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <span>📋</span><span>Сводная таблица — Служебный автотранспорт</span>
           <span class="cntbadge" id="cntS">0 зап.</span>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span class="export-note" id="exportNoteS"></span>
+          <select id="viewFilterS" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
+            <option value="all">Все регионы</option>
+          </select>
           <button class="btn btn-green" onclick="exportS()">📥 Выгрузить в Excel</button>
         </div>
       </div>
@@ -630,8 +636,11 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <span>📋</span><span>Сводная таблица — Остатки ТМЗ</span>
           <span class="cntbadge" id="cntI">0 зап.</span>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span class="export-note" id="exportNoteI"></span>
+          <select id="viewFilterI" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
+            <option value="all">Все регионы</option>
+          </select>
           <button class="btn btn-green" onclick="exportI()">📥 Выгрузить в Excel</button>
         </div>
       </div>
@@ -855,6 +864,13 @@ function showApp(){
   ['tMonth','sMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
   ['tYear','sYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
 
+  // Фильтры по регионам — только для администратора
+  if(isHQ()){
+    setupViewFilter('viewFilterT', RT);
+    setupViewFilter('viewFilterS', RS);
+    setupViewFilter('viewFilterI', RI);
+  }
+
   renderTariffGrid();
   updateExportNotes();
   rebuildTHead();
@@ -1061,7 +1077,9 @@ function clearTForm(){
 
 function renderT(){
   const showPayout=hasTariffs();
-  const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
+  const vf=getViewFilter('viewFilterT');
+  let rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
+  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbT');
   const colspan=showPayout?19:16;
@@ -1100,6 +1118,21 @@ function renderT(){
       <td><button class="btn btn-red btn-sm" onclick="delT('${r.id}')">✕</button></td>
     </tr>`;
   }).join('');
+}
+
+// ── VIEW FILTER ──
+function setupViewFilter(id, regions){
+  const sel=document.getElementById(id);
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="all">Все регионы</option>';
+  regions.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o)});
+  if(cur)sel.value=cur;
+  sel.style.display='';
+}
+function getViewFilter(id){
+  const sel=document.getElementById(id);
+  return sel?sel.value:'all';
 }
 
 // ── EXPORT MODAL ──
@@ -1216,7 +1249,9 @@ function clearSForm(){
 }
 
 function renderS(){
-  const rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
+  const vf=getViewFilter('viewFilterS');
+  let rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
+  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
   document.getElementById('cntS').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbS');
   if(!rows.length){
@@ -1305,7 +1340,9 @@ function clearIForm(){
   if([...yEl.options].some(o=>o.value===y))yEl.value=y;
 }
 function renderI(){
-  const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
+  const vf=getViewFilter('viewFilterI');
+  let rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
+  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
   document.getElementById('cntI').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbI');
   if(!rows.length){tb.innerHTML='<tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
