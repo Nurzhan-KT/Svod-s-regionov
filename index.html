@@ -427,6 +427,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
       <div class="strow">
         <div class="sttitle">📊 Статус заполнения — Служебный автотранспорт</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button id="btnTariffS" class="btn btn-outline-amber btn-sm" onclick="toggleTariffsS()" style="display:none">💰 Тарифы</button>
           <select id="stMonthS" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
             <option value="all">Все месяцы</option>
             <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
@@ -442,6 +443,25 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <div class="stgrid" id="stS"></div>
+    </div>
+
+    <!-- Tariff panel служебный (только Администратор) -->
+    <div class="tariff-panel" id="tariffPanelS" style="display:none">
+      <div class="tariff-hd">
+        <div class="tariff-hd-l"><span>💰</span><span>Тарифы — Служебный автотранспорт</span></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleTariffsS()">✕ Свернуть</button>
+          <button class="btn btn-sm" style="background:#FDE68A;color:#92400E;font-weight:700" onclick="saveTariffsS()">💾 Сохранить</button>
+        </div>
+      </div>
+      <div class="tariff-body">
+        <p class="tariff-desc">Укажите ставки (₸/месяц) по каждой комбинации «состав × рабочая неделя».</p>
+        <div class="tariff-grid" id="tariffGridS"></div>
+        <div class="formula-box">
+          <strong>Формула:</strong><br>
+          <code>Тариф (₸) ÷ Норма рабочих дней × Фактически отработано = Сумма к выплате (₸)</code>
+        </div>
+      </div>
     </div>
 
     <!-- Entry form -->
@@ -781,13 +801,14 @@ const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха',
 function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'stationary':null}
 
 // ── STATE ──
-let user=null, tData=[], sData=[], iData=[], tariffs={};
-let _unsubT=null,_unsubS=null,_unsubI=null,_unsubTariffs=null;
+let user=null, tData=[], sData=[], iData=[], tariffs={}, tariffsS={};
+let _unsubT=null,_unsubS=null,_unsubI=null,_unsubTariffs=null,_unsubTariffsS=null;
 
 function isHQ(){return user&&user.region==='HQ'}
 function isRipsAdmin(){return isHQ()&&user.role==='admin'}
 function periodLabel(m,y){return MONTHS[+m]+' '+y}
 function getRate(pos,fuel,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffs[st]?.[fuel]?.[ww]||0)}
+function getRateS(pos,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffsS[st]?.[ww]||0)}
 
 // ── FIRESTORE LISTENERS ──
 function setupListeners(){
@@ -812,6 +833,11 @@ function setupListeners(){
   _unsubTariffs=db.doc('settings/tariffs').onSnapshot(doc=>{
     tariffs=doc.exists?doc.data():{};
     if(user){renderTariffGrid();rebuildTHead();renderT();}
+  });
+  if(_unsubTariffsS)_unsubTariffsS();
+  _unsubTariffsS=db.doc('settings/tariffs_service').onSnapshot(doc=>{
+    tariffsS=doc.exists?doc.data():{};
+    if(user){renderTariffGridS();rebuildSHead();renderS();}
   });
 }
 
@@ -848,8 +874,10 @@ function showApp(){
   document.getElementById('hRegion').textContent=user.region==='HQ'?'РИПС':user.region;
   document.getElementById('hqBadge').style.display=isHQ()?'inline-block':'none';
 
-  // Кнопку Тарифы видит и редактирует только роль Администратор
-  document.getElementById('btnTariff').style.display=user.role==='admin'?'inline-flex':'none';
+  // Кнопки Тарифы — только Администратор
+  const showTariffBtn=user.role==='admin';
+  document.getElementById('btnTariff').style.display=showTariffBtn?'inline-flex':'none';
+  document.getElementById('btnTariffS').style.display=showTariffBtn?'inline-flex':'none';
 
   // Должность "Эксперт" — только для администратора
   const showExpert=user.role==='admin';
@@ -938,8 +966,10 @@ function showApp(){
   }
 
   renderTariffGrid();
+  renderTariffGridS();
   updateExportNotes();
   rebuildTHead();
+  rebuildSHead();
   renderT();renderS();renderI();renderStatus();
 }
 function updateExportNotes(){
@@ -995,6 +1025,54 @@ function saveTariffs(){
 
 function hasTariffs(){
   return['field','stationary'].some(st=>FUELS.some(f=>['5','6'].some(w=>Number(tariffs[st]?.[f]?.[w]||0)>0)));
+}
+function hasTariffsS(){
+  return['field','stationary'].some(st=>['5','6'].some(w=>Number(tariffsS[st]?.[w]||0)>0));
+}
+
+// ── ТАРИФЫ СЛУЖЕБНЫЙ ──
+let tariffSOpen=false;
+function toggleTariffsS(){
+  tariffSOpen=!tariffSOpen;
+  document.getElementById('tariffPanelS').style.display=tariffSOpen?'block':'none';
+  document.getElementById('btnTariffS').classList.toggle('active-tariff',tariffSOpen);
+}
+function renderTariffGridS(){
+  const grid=document.getElementById('tariffGridS');
+  if(!grid)return;
+  const section=(type,label)=>`<div class="trf-section-title">${label}</div>`+
+    ['5','6'].map(ww=>{
+      const rate=Number(tariffsS[type]?.[ww]||0);
+      return`<div class="trf"><label>${WW_LABELS[ww]}</label>
+        <input type="number" min="0" placeholder="0" value="${rate}"
+          data-stype="${type}" data-ww="${ww}" /></div>`;
+    }).join('');
+  grid.innerHTML=section('field','🚗 Выездной состав')+section('stationary','🏢 Стационарный состав');
+}
+function saveTariffsS(){
+  const nt={};
+  document.querySelectorAll('#tariffGridS input').forEach(inp=>{
+    const {stype,ww}=inp.dataset;
+    if(!nt[stype])nt[stype]={};
+    nt[stype][ww]=parseFloat(inp.value)||0;
+  });
+  db.doc('settings/tariffs_service').set(nt)
+    .then(()=>toast('✓ Тарифы служебного сохранены','ok'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
+}
+
+function rebuildSHead(){
+  const showPayout=hasTariffsS();
+  const colspan=showPayout?19:17;
+  document.getElementById('sHeadRow').innerHTML=`
+    <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
+    <th>Таб. №</th><th>Должность</th><th>Марка авто</th><th>Номер авто</th>
+    <th>Раб. неделя</th><th>Дней отраб.</th><th>Дней команд.</th><th>Примечание</th>
+    <th>Внёс</th><th>Дата</th>
+    ${showPayout?'<th class="col-payout">Тариф (₸)</th><th class="col-payout">Норма дней</th><th class="col-payout">Сумма к выплате (₸)</th>':''}
+    <th></th>`;
+  const emp=document.getElementById('tbS').querySelector('td[colspan]');
+  if(emp)emp.setAttribute('colspan',colspan);
 }
 
 // Rebuild transport table header (add payout cols when tariffs set — для всех ролей)
@@ -1290,43 +1368,67 @@ function clearSForm(){
 }
 
 function renderS(){
+  const showPayout=hasTariffsS();
   const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS');
   document.getElementById('cntS').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbS');
+  const colspan=showPayout?19:17;
   if(!rows.length){
-    tb.innerHTML='<tr><td colspan="17"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>';
+    tb.innerHTML=`<tr><td colspan="${colspan}"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>`;
     return;
   }
-  tb.innerHTML=rows.map((r,i)=>`<tr>
-    <td>${i+1}</td>
-    <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
-    <td><span class="badge badge-b">${r.region}</span></td>
-    <td>${r.city}</td>
-    <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
-    <td>${r.fio}</td>
-    <td><code>${r.tab}</code></td>
-    <td style="max-width:200px">${r.pos}</td>
-    <td>${r.car}</td>
-    <td><code>${r.carNum}</code></td>
-    <td>${r.ww}-дн.</td>
-    <td style="text-align:center;font-weight:600">${r.days}</td>
-    <td style="text-align:center;font-weight:600">${r.tripDays||0}</td>
-    <td style="max-width:160px;color:var(--muted);font-size:12px">${r.note||'—'}</td>
-    <td style="font-size:12px">${r.by}</td>
-    <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
-    <td><button class="btn btn-red btn-sm" onclick="delS('${r.id}')">✕</button></td>
-  </tr>`).join('');
+  tb.innerHTML=rows.map((r,i)=>{
+    let payoutCells='';
+    if(showPayout){
+      const rate=getRateS(r.pos,r.ww);
+      const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+      const payout=Math.round(rate/norm*r.days);
+      payoutCells=`
+        <td style="text-align:right">${rate.toLocaleString('ru')}</td>
+        <td style="text-align:center">${norm}</td>
+        <td class="payout-cell" style="text-align:right">${payout.toLocaleString('ru')}</td>`;
+    }
+    return`<tr>
+      <td>${i+1}</td>
+      <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
+      <td><span class="badge badge-b">${r.region}</span></td>
+      <td>${r.city}</td>
+      <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
+      <td>${r.fio}</td>
+      <td><code>${r.tab}</code></td>
+      <td style="max-width:200px">${r.pos}</td>
+      <td>${r.car}</td>
+      <td><code>${r.carNum}</code></td>
+      <td>${r.ww}-дн.</td>
+      <td style="text-align:center;font-weight:600">${r.days}</td>
+      <td style="text-align:center;font-weight:600">${r.tripDays||0}</td>
+      <td style="max-width:160px;color:var(--muted);font-size:12px">${r.note||'—'}</td>
+      <td style="font-size:12px">${r.by}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
+      ${payoutCells}
+      <td><button class="btn btn-red btn-sm" onclick="delS('${r.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
 }
 
 function exportS(){
+  const showPayout=hasTariffsS();
   const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
-  const sheet=[
-    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'],
-    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts])
-  ];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
+  const colW=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18];
+  if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
+  const sheet=[headers,...rows.map((r,i)=>{
+    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
+    if(showPayout){
+      const rate=getRateS(r.pos,r.ww);
+      const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+      base.push(rate,norm,Math.round(rate/norm*r.days));
+    }
+    return base;
+  })];
   const ws=XLSX.utils.aoa_to_sheet(sheet);
-  ws['!cols']=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18].map(w=>({wch:w}));
+  ws['!cols']=colW.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Служебный автотранспорт');
   const vf=getViewFilter('viewFilterS');
