@@ -672,7 +672,7 @@ const CITIES={
   'Алматы':['Алматы','Талдыкорган'],
   'СТиОУП':['Алматы','Астана']
 };
-CITIES['ДРТР']=Object.values(CITIES).flat();
+CITIES['ДРТР']=['ДРТР'];
 const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР','СТиОУП']; // личный авто
 const RS=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР'];           // служебный авто
 const RI=['Центр','Юг','Запад','Алматы','Восток','Север','СТиОУП'];
@@ -775,9 +775,10 @@ function showApp(){
   if(!showT){switchTab('I')}else{switchTab('T')}
 
   const isAdmin=user.role==='admin'||isHQ();
+  const isDRTRTransport=user.region==='ДРТР'&&user.role==='transport';
 
   // Личный авто: регион
-  if(isAdmin){
+  if(isAdmin||isDRTRTransport){
     document.getElementById('tReg').style.display='';
     document.getElementById('tRegStatic').style.display='none';
     if(RT.includes(user.region)){document.getElementById('tReg').value=user.region;fillTCities()}
@@ -791,7 +792,7 @@ function showApp(){
   }
 
   // Служебный авто: регион
-  if(isAdmin){
+  if(isAdmin||isDRTRTransport){
     document.getElementById('sReg').style.display='';
     document.getElementById('sRegStatic').style.display='none';
     if(RS.includes(user.region)){document.getElementById('sReg').value=user.region;fillSCities()}
