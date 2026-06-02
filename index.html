@@ -312,6 +312,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Специалист по учету ТМЦ</option>
                 <option>Специалист по учету оборудования</option>
                 <option>Технический обследователь</option>
+                <option>Ведущий инженер</option>
                 <option id="optExpertT" style="display:none">Эксперт</option>
               </select>
             </div>
@@ -467,6 +468,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Специалист по учету ТМЦ</option>
                 <option>Специалист по учету оборудования</option>
                 <option>Технический обследователь</option>
+                <option>Ведущий инженер</option>
                 <option id="optExpertS" style="display:none">Эксперт</option>
               </select>
             </div>
@@ -682,7 +684,7 @@ const MONTHS=['','Январь','Февраль','Март','Апрель','Ма
 const FUELS=['Бензин','Газ','Электричество'];
 const WW_LABELS={'5':'5-дневная','6':'6-дневная'};
 const FIELD_POS=new Set(['Инсталлятор','Электромонтер ЛСС','Электромонтер ЛСС 4 разряда','Электромонтер ЛСС 5 разряда','Электромонтер ЛСС 6 разряда','Электромонтер ЛСС 7 разряда','Инженер (ГРЛС, инсталлятор)','Электромеханик','Технический обследователь']);
-const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха','Региональный менеджер','Специалист по учету ТМЦ','Специалист по учету оборудования']);
+const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха','Региональный менеджер','Специалист по учету ТМЦ','Специалист по учету оборудования','Ведущий инженер','Эксперт']);
 function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'stationary':null}
 
 // ── STATE ──
