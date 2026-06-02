@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>АО «Казахтелеком» — Сбор данных</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -644,6 +646,18 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 <div id="toast"></div>
 
 <script>
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey: "AIzaSyDAf57D5gqcoVQJTVhygWL8CZZfVjMAC6Q",
+  authDomain: "svod-s-regionov.firebaseapp.com",
+  projectId: "svod-s-regionov",
+  storageBucket: "svod-s-regionov.firebasestorage.app",
+  messagingSenderId: "883313324410",
+  appId: "1:883313324410:web:a5854026fefe3e6055a6c3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // ── CONFIG ──
 const CITIES={
   'Центр':['Астана','Кокшетау','Караганда'],
@@ -671,24 +685,37 @@ function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'sta
 
 // ── STATE ──
 let user=null, tData=[], sData=[], iData=[], tariffs={};
+let _unsubT=null,_unsubS=null,_unsubI=null,_unsubTariffs=null;
 
-function genId(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
 function isHQ(){return user&&user.region==='HQ'}
 function isRipsAdmin(){return isHQ()&&user.role==='admin'}
 function periodLabel(m,y){return MONTHS[+m]+' '+y}
 function getRate(pos,fuel,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffs[st]?.[fuel]?.[ww]||0)}
 
-// ── PERSISTENCE ──
-function load(){
-  tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
-  sData=JSON.parse(localStorage.getItem('kt_s')||'[]');
-  iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
-  tariffs=JSON.parse(localStorage.getItem('kt_tariffs')||'{}');
-}
-function save(){
-  localStorage.setItem('kt_t',JSON.stringify(tData));
-  localStorage.setItem('kt_s',JSON.stringify(sData));
-  localStorage.setItem('kt_i',JSON.stringify(iData));
+// ── FIRESTORE LISTENERS ──
+function setupListeners(){
+  // Отписаться от старых слушателей если есть
+  if(_unsubT)_unsubT();
+  if(_unsubS)_unsubS();
+  if(_unsubI)_unsubI();
+  if(_unsubTariffs)_unsubTariffs();
+
+  _unsubT=db.collection('transport').onSnapshot(snap=>{
+    tData=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(user){renderT();renderStatus();}
+  });
+  _unsubS=db.collection('service').onSnapshot(snap=>{
+    sData=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(user){renderS();renderStatus();}
+  });
+  _unsubI=db.collection('inventory').onSnapshot(snap=>{
+    iData=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(user){renderI();renderStatus();}
+  });
+  _unsubTariffs=db.doc('settings/tariffs').onSnapshot(doc=>{
+    tariffs=doc.exists?doc.data():{};
+    if(user){renderTariffGrid();rebuildTHead();renderT();}
+  });
 }
 
 // ── AUTH ──
@@ -701,11 +728,17 @@ function doLogin(){
   if(!role){toast('Выберите роль','err');return}
   user={fio,region,role};
   localStorage.setItem('kt_user',JSON.stringify(user));
+  setupListeners();
   showApp();
 }
 function doLogout(){
-  if(!confirm('Выйти? Все данные сохранены локально.'))return;
+  if(!confirm('Выйти?'))return;
+  if(_unsubT)_unsubT();
+  if(_unsubS)_unsubS();
+  if(_unsubI)_unsubI();
+  if(_unsubTariffs)_unsubTariffs();
   localStorage.removeItem('kt_user');user=null;
+  tData=[];sData=[];iData=[];tariffs={};
   document.getElementById('loginModal').style.display='flex';
   ['appHdr','tabbar','mainContent'].forEach(i=>document.getElementById(i).style.display='none');
 }
@@ -822,19 +855,16 @@ function renderTariffGrid(){
 }
 
 function saveTariffs(){
-  tariffs={};
+  const newTariffs={};
   document.querySelectorAll('#tariffGrid input').forEach(inp=>{
     const {stype,fuel,ww}=inp.dataset;
-    if(!tariffs[stype])tariffs[stype]={};
-    if(!tariffs[stype][fuel])tariffs[stype][fuel]={};
-    tariffs[stype][fuel][ww]=parseFloat(inp.value)||0;
+    if(!newTariffs[stype])newTariffs[stype]={};
+    if(!newTariffs[stype][fuel])newTariffs[stype][fuel]={};
+    newTariffs[stype][fuel][ww]=parseFloat(inp.value)||0;
   });
-  localStorage.setItem('kt_tariffs',JSON.stringify(tariffs));
-  tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
-  sData=JSON.parse(localStorage.getItem('kt_s')||'[]');
-  iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
-  rebuildTHead();renderT();renderS();renderI();renderStatus();
-  toast('✓ Тарифы сохранены','ok');
+  db.doc('settings/tariffs').set(newTariffs)
+    .then(()=>toast('✓ Тарифы сохранены','ok'))
+    .catch(e=>toast('Ошибка сохранения: '+e.message,'err'));
 }
 
 function hasTariffs(){
@@ -894,7 +924,7 @@ function submitT(e){
   const ww=document.querySelector('input[name="tWW"]:checked');
   if(!ww){toast('Выберите рабочую неделю','err');return}
   const rec={
-    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
     month:document.getElementById('tMonth').value,
     year:document.getElementById('tYear').value,
     region:document.getElementById('tReg').value,
@@ -909,18 +939,21 @@ function submitT(e){
     tripDays:parseInt(document.getElementById('tTripDays').value)||0,
     note:document.getElementById('tNote').value.trim()
   };
-  tData.push(rec);save();
   const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city};
-  document.getElementById('formT').reset();
-  document.getElementById('tMonth').value=sv.month;
-  document.getElementById('tYear').value=sv.year;
-  document.getElementById('tReg').value=sv.reg;fillTCities();
-  document.getElementById('tCity').value=sv.city;
-  renderT();renderStatus();toast('✓ Запись добавлена','ok');
+  db.collection('transport').add(rec).then(()=>{
+    document.getElementById('formT').reset();
+    document.getElementById('tMonth').value=sv.month;
+    document.getElementById('tYear').value=sv.year;
+    document.getElementById('tReg').value=sv.reg;fillTCities();
+    document.getElementById('tCity').value=sv.city;
+    toast('✓ Запись добавлена','ok');
+  }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function delT(id){
   if(!confirm('Удалить эту запись?'))return;
-  tData=tData.filter(r=>r.id!==id);save();renderT();renderStatus();toast('Запись удалена','info');
+  db.collection('transport').doc(id).delete()
+    .then(()=>toast('Запись удалена','info'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function clearTForm(){
   document.getElementById('formT').reset();
@@ -1010,7 +1043,7 @@ function submitS(e){
   const ww=document.querySelector('input[name="sWW"]:checked');
   if(!ww){toast('Выберите рабочую неделю','err');return}
   const rec={
-    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
     month:document.getElementById('sMonth').value,
     year:document.getElementById('sYear').value,
     region:document.getElementById('sReg').value,
@@ -1026,18 +1059,21 @@ function submitS(e){
     tripDays:parseInt(document.getElementById('sTripDays').value)||0,
     note:document.getElementById('sNote').value.trim()
   };
-  sData.push(rec);save();
   const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city};
-  document.getElementById('formS').reset();
-  document.getElementById('sMonth').value=sv.month;
-  document.getElementById('sYear').value=sv.year;
-  document.getElementById('sReg').value=sv.reg;fillSCities();
-  document.getElementById('sCity').value=sv.city;
-  renderS();renderStatus();toast('✓ Запись добавлена','ok');
+  db.collection('service').add(rec).then(()=>{
+    document.getElementById('formS').reset();
+    document.getElementById('sMonth').value=sv.month;
+    document.getElementById('sYear').value=sv.year;
+    document.getElementById('sReg').value=sv.reg;fillSCities();
+    document.getElementById('sCity').value=sv.city;
+    toast('✓ Запись добавлена','ok');
+  }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function delS(id){
   if(!confirm('Удалить эту запись?'))return;
-  sData=sData.filter(r=>r.id!==id);save();renderS();renderStatus();toast('Запись удалена','info');
+  db.collection('service').doc(id).delete()
+    .then(()=>toast('Запись удалена','info'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function clearSForm(){
   document.getElementById('formS').reset();
@@ -1099,7 +1135,7 @@ function exportS(){
 function submitI(e){
   e.preventDefault();
   const rec={
-    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
     month:document.getElementById('iMonth').value,
     year:document.getElementById('iYear').value,
     region:document.getElementById('iReg').value,
@@ -1110,19 +1146,22 @@ function submitI(e){
     qtyNew:parseInt(document.getElementById('iQtyNew').value)||0,
     qtyUsed:parseInt(document.getElementById('iQtyUsed').value)||0
   };
-  iData.push(rec);save();
   const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city,mol:rec.mol};
-  document.getElementById('formI').reset();
-  document.getElementById('iMonth').value=sv.month;
-  document.getElementById('iYear').value=sv.year;
-  document.getElementById('iReg').value=sv.reg;fillICities();
-  document.getElementById('iCity').value=sv.city;
-  document.getElementById('iMol').value=sv.mol;
-  renderI();renderStatus();toast('✓ Запись добавлена','ok');
+  db.collection('inventory').add(rec).then(()=>{
+    document.getElementById('formI').reset();
+    document.getElementById('iMonth').value=sv.month;
+    document.getElementById('iYear').value=sv.year;
+    document.getElementById('iReg').value=sv.reg;fillICities();
+    document.getElementById('iCity').value=sv.city;
+    document.getElementById('iMol').value=sv.mol;
+    toast('✓ Запись добавлена','ok');
+  }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function delI(id){
   if(!confirm('Удалить эту запись?'))return;
-  iData=iData.filter(r=>r.id!==id);save();renderI();renderStatus();toast('Запись удалена','info');
+  db.collection('inventory').doc(id).delete()
+    .then(()=>toast('Запись удалена','info'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function clearIForm(){
   document.getElementById('formI').reset();
@@ -1261,9 +1300,12 @@ function onLoginRoleChange(){
 }
 
 // ── BOOT ──
-load();
 const _u=localStorage.getItem('kt_user');
-if(_u){user=JSON.parse(_u);showApp()}
+if(_u){
+  user=JSON.parse(_u);
+  setupListeners();
+  showApp();
+}
 
 // Working days hint listeners
 ['tMonth','tYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHint));
