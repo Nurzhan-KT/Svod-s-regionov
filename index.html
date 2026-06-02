@@ -864,8 +864,13 @@ function showApp(){
   ['tMonth','sMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
   ['tYear','sYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
 
-  // Фильтры по регионам — только для администратора
-  if(isHQ()){
+  // Фильтры по регионам — только для РИПС/Администратор
+  const showFilter=isRipsAdmin();
+  ['viewFilterT','viewFilterS','viewFilterI'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display='none';
+  });
+  if(showFilter){
     setupViewFilter('viewFilterT', RT);
     setupViewFilter('viewFilterS', RS);
     setupViewFilter('viewFilterI', RI);
