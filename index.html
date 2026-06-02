@@ -740,23 +740,6 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
   </section>
 
 </main>
-<!-- EXPORT MODAL -->
-<div id="exportModal" class="emodal-bg" style="display:none">
-  <div class="emodal">
-    <h3>📥 Выгрузка в Excel</h3>
-    <p>Выберите регион для выгрузки:</p>
-    <div class="mf">
-      <label>Регион</label>
-      <select id="exportRegion">
-        <option value="all">Все регионы</option>
-      </select>
-    </div>
-    <div class="emodal-btns">
-      <button class="btn btn-outline btn-sm" onclick="closeExportModal()">Отмена</button>
-      <button class="btn btn-green" onclick="runExport()">📥 Выгрузить</button>
-    </div>
-  </div>
-</div>
 <div id="toast"></div>
 
 <script>
@@ -1160,13 +1143,7 @@ function clearTForm(){
 
 function renderT(){
   const showPayout=hasTariffs();
-  const vf=getViewFilter('viewFilterT');
-  const pm=document.getElementById('periodMonthT')?.value||'all';
-  const py=document.getElementById('periodYearT')?.value||'all';
-  let rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
-  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
-  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
-  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
+  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT');
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbT');
   const colspan=showPayout?19:16;
@@ -1221,47 +1198,24 @@ function getViewFilter(id){
   const sel=document.getElementById(id);
   return sel?sel.value:'all';
 }
-
-// ── EXPORT MODAL ──
-let _exportType=null;
-function showExportModal(type){
-  if(!isHQ()){
-    // Не администратор — выгружаем сразу свой регион
-    if(type==='T')doExportT('own');
-    else if(type==='S')doExportS('own');
-    else doExportI('own');
-    return;
-  }
-  _exportType=type;
-  const regions=type==='I'?RI:type==='S'?RS:RT;
-  const sel=document.getElementById('exportRegion');
-  sel.innerHTML='<option value="all">Все регионы</option>';
-  regions.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o)});
-  document.getElementById('exportModal').style.display='flex';
-}
-function closeExportModal(){
-  document.getElementById('exportModal').style.display='none';
-  _exportType=null;
-}
-function runExport(){
-  const reg=document.getElementById('exportRegion').value;
-  closeExportModal();
-  if(_exportType==='T')doExportT(reg);
-  else if(_exportType==='S')doExportS(reg);
-  else doExportI(reg);
+function getFilteredRows(data, regionFilterId, monthId, yearId){
+  const vf=getViewFilter(regionFilterId);
+  const pm=document.getElementById(monthId)?.value||'all';
+  const py=document.getElementById(yearId)?.value||'all';
+  let rows=isHQ()?data:data.filter(r=>r.region===user.region);
+  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
+  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
+  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
+  return rows;
 }
 
-function exportT(){showExportModal('T')}
-function doExportT(filterReg){
+function exportT(){
   const showPayout=hasTariffs();
-  let rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
-  if(filterReg&&filterReg!=='all')rows=rows.filter(r=>r.region===filterReg);
+  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
-
   const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
   const colW=[4,14,8,12,16,22,28,12,30,14,14,12,14,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
-
   const sheet=[headers,...rows.map((r,i)=>{
     const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
     if(showPayout){
@@ -1271,12 +1225,12 @@ function doExportT(filterReg){
     }
     return base;
   })];
-
   const ws=XLSX.utils.aoa_to_sheet(sheet);
   ws['!cols']=colW.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Личный автотранспорт');
-  const suf=(filterReg&&filterReg!=='all')?filterReg:isHQ()?'все_регионы':user.region;
+  const vf=getViewFilter('viewFilterT');
+  const suf=vf!=='all'?vf:isHQ()?'все_регионы':user.region;
   XLSX.writeFile(wb,'КТ_Личный_автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   toast('📥 Файл сохранён','ok');
 }
@@ -1336,13 +1290,7 @@ function clearSForm(){
 }
 
 function renderS(){
-  const vf=getViewFilter('viewFilterS');
-  const pm=document.getElementById('periodMonthS')?.value||'all';
-  const py=document.getElementById('periodYearS')?.value||'all';
-  let rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
-  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
-  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
-  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
+  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS');
   document.getElementById('cntS').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbS');
   if(!rows.length){
@@ -1370,10 +1318,8 @@ function renderS(){
   </tr>`).join('');
 }
 
-function exportS(){showExportModal('S')}
-function doExportS(filterReg){
-  let rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
-  if(filterReg&&filterReg!=='all')rows=rows.filter(r=>r.region===filterReg);
+function exportS(){
+  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const sheet=[
     ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'],
@@ -1383,7 +1329,8 @@ function doExportS(filterReg){
   ws['!cols']=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Служебный автотранспорт');
-  const suf=(filterReg&&filterReg!=='all')?filterReg:isHQ()?'все_регионы':user.region;
+  const vf=getViewFilter('viewFilterS');
+  const suf=vf!=='all'?vf:isHQ()?'все_регионы':user.region;
   XLSX.writeFile(wb,'КТ_Служебный_автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   toast('📥 Файл сохранён','ok');
 }
@@ -1431,13 +1378,7 @@ function clearIForm(){
   if([...yEl.options].some(o=>o.value===y))yEl.value=y;
 }
 function renderI(){
-  const vf=getViewFilter('viewFilterI');
-  const pm=document.getElementById('periodMonthI')?.value||'all';
-  const py=document.getElementById('periodYearI')?.value||'all';
-  let rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
-  if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
-  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
-  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
+  const rows=getFilteredRows(iData,'viewFilterI','periodMonthI','periodYearI');
   document.getElementById('cntI').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbI');
   if(!rows.length){tb.innerHTML='<tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
@@ -1457,10 +1398,8 @@ function renderI(){
       <td><button class="btn btn-red btn-sm" onclick="delI('${r.id}')">✕</button></td>
     </tr>`).join('');
 }
-function exportI(){showExportModal('I')}
-function doExportI(filterReg){
-  let rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
-  if(filterReg&&filterReg!=='all')rows=rows.filter(r=>r.region===filterReg);
+function exportI(){
+  const rows=getFilteredRows(iData,'viewFilterI','periodMonthI','periodYearI');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const sheet=[
     ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Кто вносил данные','Дата внесения'],
@@ -1470,7 +1409,8 @@ function doExportI(filterReg){
   ws['!cols']=[4,14,8,12,16,22,28,38,13,13,24,18].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Фактические остатки');
-  const suf=(filterReg&&filterReg!=='all')?filterReg:isHQ()?'все_регионы':user.region;
+  const vfI=getViewFilter('viewFilterI');
+  const suf=vfI!=='all'?vfI:isHQ()?'все_регионы':user.region;
   XLSX.writeFile(wb,'КТ_Фактические_остатки_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   toast('📥 Файл сохранён','ok');
 }
