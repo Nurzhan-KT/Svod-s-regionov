@@ -254,7 +254,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         <div class="tariff-grid" id="tariffGrid"></div>
         <div class="formula-box">
           <strong>Формула расчёта суммы к выплате:</strong><br>
-          <code>Тариф (₸) ÷ Норма рабочих дней × Фактически отработано = Сумма к выплате (₸)</code>
+          <code>Тариф (₸) ÷ Норма рабочих дней × (Фактически отработано − Дней командировки) = Сумма к выплате (₸)</code>
         </div>
       </div>
     </div>
@@ -1241,7 +1241,8 @@ function renderT(){
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
-      const payout=Math.round(rate/norm*r.days);
+      const effectiveDays=Math.max(0,r.days-(r.tripDays||0));
+      const payout=Math.round(rate/norm*effectiveDays);
       payoutCells=`
         <td style="text-align:right">${rate.toLocaleString('ru')}</td>
         <td style="text-align:center">${norm}</td>
@@ -1306,7 +1307,8 @@ function exportT(){
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
-      base.push(rate,norm,Math.round(rate/norm*r.days));
+      const effectiveDays=Math.max(0,r.days-(r.tripDays||0));
+      base.push(rate,norm,Math.round(rate/norm*effectiveDays));
     }
     return base;
   })];
