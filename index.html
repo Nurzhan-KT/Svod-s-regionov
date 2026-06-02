@@ -894,7 +894,11 @@ function showApp(){
   document.getElementById('tabT').style.display=showT?'':'none';
   document.getElementById('tabS').style.display=showS?'':'none';
   document.getElementById('tabI').style.display=showI?'':'none';
-  if(!showT){switchTab('I')}else{switchTab('T')}
+  const savedTab=localStorage.getItem('kt_tab');
+  if(!showT){switchTab('I')}
+  else if(savedTab==='S'&&showS){switchTab('S')}
+  else if(savedTab==='I'&&showI){switchTab('I')}
+  else{switchTab('T')}
 
   const isAdmin=user.role==='admin'||isHQ();
   const isDRTRTransport=user.region==='ДРТР'&&user.role==='transport';
@@ -988,6 +992,7 @@ function switchTab(t){
     if(sec)sec.classList.toggle('active',x===t);
     if(tab)tab.classList.toggle('active',x===t);
   });
+  localStorage.setItem('kt_tab',t);
 }
 
 // ── TARIFFS ──
