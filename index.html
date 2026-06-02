@@ -196,20 +196,21 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- TABS -->
 <nav class="tabbar" id="tabbar" style="display:none">
-  <button class="tabbtn active" id="tabT" onclick="switchTab('T')"><span class="tabico">🚗</span><span>Автотранспортные средства</span></button>
+  <button class="tabbtn active" id="tabT" onclick="switchTab('T')"><span class="tabico">🚗</span><span>Личный автотранспорт</span></button>
+  <button class="tabbtn" id="tabS" onclick="switchTab('S')"><span class="tabico">🚐</span><span>Служебный автотранспорт</span></button>
   <button class="tabbtn" id="tabI" onclick="switchTab('I')"><span class="tabico">📦</span><span>Фактические остатки ТМЗ</span></button>
 </nav>
 
 <!-- CONTENT -->
 <main class="content" id="mainContent" style="display:none">
 
-  <!-- ═══ TRANSPORT ═══ -->
+  <!-- ═══ ЛИЧНЫЙ АВТОТРАНСПОРТ ═══ -->
   <section class="sec active" id="secT">
 
     <!-- Status header -->
     <div class="sthdr">
       <div class="strow">
-        <div class="sttitle">📊 Статус заполнения — Автотранспортные средства</div>
+        <div class="sttitle">📊 Статус заполнения — Личный автотранспорт</div>
         <button id="btnTariff" class="btn btn-outline-amber btn-sm" onclick="toggleTariffs()" style="display:none">
           💰 Тарифы
         </button>
@@ -217,7 +218,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
       <div class="stgrid" id="stT"></div>
     </div>
 
-    <!-- Tariff panel (РИПС only, collapsible) -->
+    <!-- Tariff panel (только Администратор, collapsible) -->
     <div class="tariff-panel" id="tariffPanel" style="display:none">
       <div class="tariff-hd">
         <div class="tariff-hd-l"><span>💰</span><span>Тарифы по автотранспорту</span></div>
@@ -227,7 +228,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <div class="tariff-body">
-        <p class="tariff-desc">Укажите ставки (₸/месяц) по каждой комбинации «топливо × рабочая неделя». При выгрузке отчёта РИПС автоматически рассчитывается сумма к выплате.</p>
+        <p class="tariff-desc">Укажите ставки (₸/месяц) по каждой комбинации «топливо × рабочая неделя». При выгрузке отчёта автоматически рассчитывается сумма к выплате.</p>
         <div class="tariff-grid" id="tariffGrid"></div>
         <div class="formula-box">
           <strong>Формула расчёта суммы к выплате:</strong><br>
@@ -239,7 +240,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <!-- Entry form -->
     <div class="card">
       <div class="cardhd">
-        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Автотранспорт</span></div>
+        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Личный автотранспорт</span></div>
         <button class="btn btn-ghost btn-sm" onclick="clearTForm()">Очистить</button>
       </div>
       <div class="cardbody">
@@ -330,6 +331,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
               <input type="number" id="tDays" min="0" max="31" placeholder="0" required />
               <small id="wdHint" style="color:var(--muted);font-size:11.5px;margin-top:3px;min-height:16px;display:block"></small>
             </div>
+            <div class="ff">
+              <label>Дней командировки</label>
+              <input type="number" id="tTripDays" min="0" max="31" placeholder="0" />
+            </div>
             <div class="ff full">
               <label>Примечание</label>
               <textarea id="tNote" placeholder="Дополнительная информация..."></textarea>
@@ -347,7 +352,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <div class="card">
       <div class="cardhd">
         <div class="cardhd-l">
-          <span>📋</span><span>Сводная таблица — Автотранспорт</span>
+          <span>📋</span><span>Сводная таблица — Личный автотранспорт</span>
           <span class="cntbadge" id="cntT">0 зап.</span>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -362,12 +367,166 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
               <tr id="tHeadRow">
                 <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
                 <th>Таб. №</th><th>Должность</th><th>Топливо</th>
-                <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
+                <th>Раб. неделя</th><th>Дней отраб.</th><th>Дней команд.</th><th>Примечание</th>
                 <th>Внёс</th><th>Дата</th><th></th>
               </tr>
             </thead>
             <tbody id="tbT">
-              <tr><td colspan="15"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
+              <tr><td colspan="16"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ СЛУЖЕБНЫЙ АВТОТРАНСПОРТ ═══ -->
+  <section class="sec" id="secS">
+
+    <!-- Status header -->
+    <div class="sthdr">
+      <div class="strow">
+        <div class="sttitle">📊 Статус заполнения — Служебный автотранспорт</div>
+      </div>
+      <div class="stgrid" id="stS"></div>
+    </div>
+
+    <!-- Entry form -->
+    <div class="card">
+      <div class="cardhd">
+        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Служебный автотранспорт</span></div>
+        <button class="btn btn-ghost btn-sm" onclick="clearSForm()">Очистить</button>
+      </div>
+      <div class="cardbody">
+        <form id="formS" onsubmit="submitS(event)">
+          <div class="fgrid">
+            <div class="ff">
+              <label>Месяц отчётности *</label>
+              <select id="sMonth" required>
+                <option value="">— Месяц —</option>
+                <option value="1">Январь</option><option value="2">Февраль</option>
+                <option value="3">Март</option><option value="4">Апрель</option>
+                <option value="5">Май</option><option value="6">Июнь</option>
+                <option value="7">Июль</option><option value="8">Август</option>
+                <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+                <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Год отчётности *</label>
+              <select id="sYear" required>
+                <option value="">— Год —</option>
+                <option value="2024">2024</option><option value="2025">2025</option>
+                <option value="2026">2026</option><option value="2027">2027</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Регион *</label>
+              <select id="sReg" required onchange="fillSCities()">
+                <option value="">— Выберите регион —</option>
+                <option>Центр</option><option>Юг</option><option>Запад</option>
+                <option>Алматы</option><option>Восток</option><option>Север</option>
+                <option>ДРТР</option>
+              </select>
+              <div id="sRegStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
+            </div>
+            <div class="ff">
+              <label id="sCityLabel">Город *</label>
+              <select id="sCity" required><option value="">— Сначала выберите регион —</option></select>
+            </div>
+            <div class="ff" id="sLocationWrap" style="display:none">
+              <label>Местонахождение</label>
+              <input id="sLocation" placeholder="Введите местонахождение" />
+            </div>
+            <div class="ff">
+              <label>ФИО водителя *</label>
+              <input id="sFio" placeholder="Фамилия Имя Отчество" required />
+            </div>
+            <div class="ff">
+              <label>Табельный номер *</label>
+              <input id="sTab" placeholder="00000" required />
+            </div>
+            <div class="ff">
+              <label>Должность *</label>
+              <select id="sPos" required>
+                <option value="">— Выберите должность —</option>
+                <option>Инсталлятор</option>
+                <option>Электромонтер ЛСС</option>
+                <option>Электромонтер ЛСС 4 разряда</option>
+                <option>Электромонтер ЛСС 5 разряда</option>
+                <option>Электромонтер ЛСС 6 разряда</option>
+                <option>Электромонтер ЛСС 7 разряда</option>
+                <option>Инженер*(МОЛ)</option>
+                <option>Инженер (ГРЛС, инсталлятор)</option>
+                <option>Электромеханик</option>
+                <option>Начальник цеха</option>
+                <option>Региональный менеджер</option>
+                <option>Специалист по учету ТМЦ</option>
+                <option>Специалист по учету оборудования</option>
+                <option>Технический обследователь</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Марка автомобиля *</label>
+              <input id="sCar" placeholder="Например: Toyota Camry" required />
+            </div>
+            <div class="ff">
+              <label>Номер автомобиля *</label>
+              <input id="sCarNum" placeholder="Например: 123 ABC 01" required />
+            </div>
+            <div class="ff">
+              <label>Рабочая неделя *</label>
+              <div class="rrow">
+                <label class="ropt"><input type="radio" name="sWW" value="5" required> 5-дневная</label>
+                <label class="ropt"><input type="radio" name="sWW" value="6"> 6-дневная</label>
+              </div>
+            </div>
+            <div class="ff">
+              <label>Дней отработано *</label>
+              <input type="number" id="sDays" min="0" max="31" placeholder="0" required />
+            </div>
+            <div class="ff">
+              <label>Дней командировки</label>
+              <input type="number" id="sTripDays" min="0" max="31" placeholder="0" />
+            </div>
+            <div class="ff full">
+              <label>Примечание</label>
+              <textarea id="sNote" placeholder="Дополнительная информация..."></textarea>
+            </div>
+          </div>
+          <div class="btns">
+            <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
+            <button type="button" class="btn btn-outline" onclick="clearSForm()">Очистить форму</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <div class="card">
+      <div class="cardhd">
+        <div class="cardhd-l">
+          <span>📋</span><span>Сводная таблица — Служебный автотранспорт</span>
+          <span class="cntbadge" id="cntS">0 зап.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="export-note" id="exportNoteS"></span>
+          <button class="btn btn-green" onclick="exportS()">📥 Выгрузить в Excel</button>
+        </div>
+      </div>
+      <div class="cardbody">
+        <div class="twrap">
+          <table class="dt">
+            <thead>
+              <tr id="sHeadRow">
+                <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
+                <th>Таб. №</th><th>Должность</th><th>Марка авто</th><th>Номер авто</th>
+                <th>Раб. неделя</th><th>Дней отраб.</th><th>Дней команд.</th><th>Примечание</th>
+                <th>Внёс</th><th>Дата</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tbS">
+              <tr><td colspan="17"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -496,9 +655,13 @@ const CITIES={
   'СТиОУП':['Алматы','Астана']
 };
 CITIES['ДРТР']=Object.values(CITIES).flat();
-const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР','СТиОУП'];
+const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР','СТиОУП']; // личный авто
+const RS=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР'];           // служебный авто
 const RI=['Центр','Юг','Запад','Алматы','Восток','Север','СТиОУП'];
+// Лимиты личного автотранспорта
 const LIMITS={'Запад':38,'Север':20,'Восток':31,'Центр':86,'Алматы':62,'Юг':27,'ДРТР':15,'СТиОУП':1};
+// Лимиты служебного автотранспорта
+const LIMITS_S={'Запад':14,'Север':6,'Восток':6,'Центр':30,'Алматы':30,'Юг':14,'ДРТР':5};
 const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const FUELS=['Бензин','Газ','Электричество'];
 const WW_LABELS={'5':'5-дневная','6':'6-дневная'};
@@ -507,21 +670,24 @@ const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха',
 function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'stationary':null}
 
 // ── STATE ──
-let user=null, tData=[], iData=[], tariffs={};
+let user=null, tData=[], sData=[], iData=[], tariffs={};
 
 function genId(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
 function isHQ(){return user&&user.region==='HQ'}
+function isRipsAdmin(){return isHQ()&&user.role==='admin'}
 function periodLabel(m,y){return MONTHS[+m]+' '+y}
 function getRate(pos,fuel,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffs[st]?.[fuel]?.[ww]||0)}
 
 // ── PERSISTENCE ──
 function load(){
   tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
+  sData=JSON.parse(localStorage.getItem('kt_s')||'[]');
   iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
   tariffs=JSON.parse(localStorage.getItem('kt_tariffs')||'{}');
 }
 function save(){
   localStorage.setItem('kt_t',JSON.stringify(tData));
+  localStorage.setItem('kt_s',JSON.stringify(sData));
   localStorage.setItem('kt_i',JSON.stringify(iData));
 }
 
@@ -551,16 +717,22 @@ function showApp(){
   document.getElementById('hName').textContent=user.fio;
   document.getElementById('hRegion').textContent=user.region==='HQ'?'РИПС':user.region;
   document.getElementById('hqBadge').style.display=isHQ()?'inline-block':'none';
-  document.getElementById('btnTariff').style.display=isHQ()?'inline-flex':'none';
 
+  // Кнопку Тарифы видит и редактирует только роль Администратор
+  document.getElementById('btnTariff').style.display=user.role==='admin'?'inline-flex':'none';
+
+  // Вкладки автотранспорта: для ответственных по автотранспорту и администратора
   const showT=user.role!=='inventory';
+  const showS=user.role!=='inventory';
   const showI=user.role!=='transport';
   document.getElementById('tabT').style.display=showT?'':'none';
+  document.getElementById('tabS').style.display=showS?'':'none';
   document.getElementById('tabI').style.display=showI?'':'none';
   if(!showT){switchTab('I')}else{switchTab('T')}
 
   const isAdmin=user.role==='admin'||isHQ();
-  // Транспорт: регион
+
+  // Личный авто: регион
   if(isAdmin){
     document.getElementById('tReg').style.display='';
     document.getElementById('tRegStatic').style.display='none';
@@ -573,6 +745,21 @@ function showApp(){
     document.getElementById('tReg').value=user.region;
     fillTCities();
   }
+
+  // Служебный авто: регион
+  if(isAdmin){
+    document.getElementById('sReg').style.display='';
+    document.getElementById('sRegStatic').style.display='none';
+    if(RS.includes(user.region)){document.getElementById('sReg').value=user.region;fillSCities()}
+  } else {
+    document.getElementById('sReg').style.display='none';
+    document.getElementById('sReg').removeAttribute('required');
+    const ss=document.getElementById('sRegStatic');
+    ss.style.display='';ss.textContent=user.region;
+    document.getElementById('sReg').value=user.region;
+    fillSCities();
+  }
+
   // ТМЗ: регион
   if(isAdmin){
     document.getElementById('iReg').style.display='';
@@ -588,25 +775,28 @@ function showApp(){
   }
 
   const now=new Date(),m=now.getMonth()+1,y=now.getFullYear().toString();
-  ['tMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
-  ['tYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
+  ['tMonth','sMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
+  ['tYear','sYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
 
   renderTariffGrid();
   updateExportNotes();
   rebuildTHead();
-  renderT();renderI();renderStatus();
+  renderT();renderS();renderI();renderStatus();
 }
 function updateExportNotes(){
   const note=isHQ()?'Выгрузка: все регионы + расчёт выплат':'Выгрузка: только ваш регион';
   document.getElementById('exportNoteT').textContent=note;
+  document.getElementById('exportNoteS').textContent=isHQ()?'Выгрузка: все регионы':'Выгрузка: только ваш регион';
   document.getElementById('exportNoteI').textContent=note;
 }
 
 // ── TABS ──
 function switchTab(t){
-  ['T','I'].forEach(x=>{
-    document.getElementById('sec'+x).classList.toggle('active',x===t);
-    document.getElementById('tab'+x).classList.toggle('active',x===t);
+  ['T','S','I'].forEach(x=>{
+    const sec=document.getElementById('sec'+x);
+    const tab=document.getElementById('tab'+x);
+    if(sec)sec.classList.toggle('active',x===t);
+    if(tab)tab.classList.toggle('active',x===t);
   });
 }
 
@@ -640,10 +830,10 @@ function saveTariffs(){
     tariffs[stype][fuel][ww]=parseFloat(inp.value)||0;
   });
   localStorage.setItem('kt_tariffs',JSON.stringify(tariffs));
-  // Перезагружаем записи из localStorage чтобы гарантировать актуальность данных
   tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
+  sData=JSON.parse(localStorage.getItem('kt_s')||'[]');
   iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
-  rebuildTHead();renderT();renderI();renderStatus();
+  rebuildTHead();renderT();renderS();renderI();renderStatus();
   toast('✓ Тарифы сохранены','ok');
 }
 
@@ -651,16 +841,16 @@ function hasTariffs(){
   return['field','stationary'].some(st=>FUELS.some(f=>['5','6'].some(w=>Number(tariffs[st]?.[f]?.[w]||0)>0)));
 }
 
-// Rebuild transport table header (add payout cols for РИПС when tariffs set)
+// Rebuild transport table header (add payout cols when tariffs set — для всех ролей)
 function rebuildTHead(){
-  const hq=isHQ()&&hasTariffs();
-  const colspan=hq?18:15;
+  const showPayout=hasTariffs();
+  const colspan=showPayout?19:16;
   document.getElementById('tHeadRow').innerHTML=`
     <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО водителя</th>
     <th>Таб. №</th><th>Должность</th><th>Топливо</th>
-    <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
+    <th>Раб. неделя</th><th>Дней отраб.</th><th>Дней команд.</th><th>Примечание</th>
     <th>Внёс</th><th>Дата</th>
-    ${hq?'<th class="col-payout">Тариф (₸)</th><th class="col-payout">Норма дней</th><th class="col-payout">Сумма к выплате (₸)</th>':''}
+    ${showPayout?'<th class="col-payout">Тариф (₸)</th><th class="col-payout">Норма дней</th><th class="col-payout">Сумма к выплате (₸)</th>':''}
     <th></th>`;
   const emp=document.getElementById('tbT').querySelector('td[colspan]');
   if(emp)emp.setAttribute('colspan',colspan);
@@ -681,6 +871,14 @@ function fillTCities(){
   document.getElementById('tCityLabel').textContent=isDRTR?'Город *':'Цех *';
   document.getElementById('tLocationWrap').style.display=showLoc?'flex':'none';
 }
+function fillSCities(){
+  const reg=document.getElementById('sReg').value;
+  const isDRTR=reg==='ДРТР';
+  const showLoc=reg&&!isDRTR;
+  fillCitySelect(document.getElementById('sCity'),reg,isDRTR?'— Выберите город —':'— Выберите цех —');
+  document.getElementById('sCityLabel').textContent=isDRTR?'Город *':'Цех *';
+  document.getElementById('sLocationWrap').style.display=showLoc?'flex':'none';
+}
 function fillICities(){
   const reg=document.getElementById('iReg').value;
   const isDRTR=reg==='ДРТР';
@@ -690,7 +888,7 @@ function fillICities(){
   document.getElementById('iLocationWrap').style.display=showLoc?'flex':'none';
 }
 
-// ── TRANSPORT ──
+// ── ЛИЧНЫЙ АВТОТРАНСПОРТ ──
 function submitT(e){
   e.preventDefault();
   const ww=document.querySelector('input[name="tWW"]:checked');
@@ -707,7 +905,8 @@ function submitT(e){
     pos:document.getElementById('tPos').value,
     fuel:document.getElementById('tFuel').value,
     ww:ww.value,
-    days:parseInt(document.getElementById('tDays').value),
+    days:parseInt(document.getElementById('tDays').value)||0,
+    tripDays:parseInt(document.getElementById('tTripDays').value)||0,
     note:document.getElementById('tNote').value.trim()
   };
   tData.push(rec);save();
@@ -735,11 +934,11 @@ function clearTForm(){
 }
 
 function renderT(){
-  const showPayout=isHQ()&&hasTariffs();
+  const showPayout=hasTariffs();
   const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbT');
-  const colspan=showPayout?18:15;
+  const colspan=showPayout?19:16;
   if(!rows.length){
     tb.innerHTML=`<tr><td colspan="${colspan}"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>`;
     return;
@@ -767,6 +966,7 @@ function renderT(){
       <td><span class="badge badge-g">${r.fuel}</span></td>
       <td>${r.ww}-дн.</td>
       <td style="text-align:center;font-weight:600">${r.days}</td>
+      <td style="text-align:center;font-weight:600">${r.tripDays||0}</td>
       <td style="max-width:160px;color:var(--muted);font-size:12px">${r.note||'—'}</td>
       <td style="font-size:12px">${r.by}</td>
       <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
@@ -777,16 +977,16 @@ function renderT(){
 }
 
 function exportT(){
-  const showPayout=isHQ()&&hasTariffs();
+  const showPayout=hasTariffs();
   const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
 
-  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Кто вносил данные','Дата внесения'];
-  const colW=[4,14,8,12,16,22,28,12,30,14,14,12,28,24,18];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
+  const colW=[4,14,8,12,16,22,28,12,30,14,14,12,14,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
 
   const sheet=[headers,...rows.map((r,i)=>{
-    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.note||'',r.by,r.ts];
+    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
@@ -798,9 +998,100 @@ function exportT(){
   const ws=XLSX.utils.aoa_to_sheet(sheet);
   ws['!cols']=colW.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Автотранспорт');
+  XLSX.utils.book_append_sheet(wb,ws,'Личный автотранспорт');
   const suf=isHQ()?'все_регионы':user.region;
-  XLSX.writeFile(wb,'КТ_Автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'КТ_Личный_автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── СЛУЖЕБНЫЙ АВТОТРАНСПОРТ ──
+function submitS(e){
+  e.preventDefault();
+  const ww=document.querySelector('input[name="sWW"]:checked');
+  if(!ww){toast('Выберите рабочую неделю','err');return}
+  const rec={
+    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    month:document.getElementById('sMonth').value,
+    year:document.getElementById('sYear').value,
+    region:document.getElementById('sReg').value,
+    city:document.getElementById('sCity').value,
+    location:document.getElementById('sLocation').value.trim(),
+    fio:document.getElementById('sFio').value.trim(),
+    tab:document.getElementById('sTab').value.trim(),
+    pos:document.getElementById('sPos').value,
+    car:document.getElementById('sCar').value.trim(),
+    carNum:document.getElementById('sCarNum').value.trim(),
+    ww:ww.value,
+    days:parseInt(document.getElementById('sDays').value)||0,
+    tripDays:parseInt(document.getElementById('sTripDays').value)||0,
+    note:document.getElementById('sNote').value.trim()
+  };
+  sData.push(rec);save();
+  const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city};
+  document.getElementById('formS').reset();
+  document.getElementById('sMonth').value=sv.month;
+  document.getElementById('sYear').value=sv.year;
+  document.getElementById('sReg').value=sv.reg;fillSCities();
+  document.getElementById('sCity').value=sv.city;
+  renderS();renderStatus();toast('✓ Запись добавлена','ok');
+}
+function delS(id){
+  if(!confirm('Удалить эту запись?'))return;
+  sData=sData.filter(r=>r.id!==id);save();renderS();renderStatus();toast('Запись удалена','info');
+}
+function clearSForm(){
+  document.getElementById('formS').reset();
+  document.getElementById('sCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
+  document.getElementById('sLocation').value='';
+  if(RS.includes(user?.region)){document.getElementById('sReg').value=user.region;fillSCities()}
+  const now=new Date(),y=now.getFullYear().toString();
+  document.getElementById('sMonth').value=now.getMonth()+1;
+  const yEl=document.getElementById('sYear');
+  if([...yEl.options].some(o=>o.value===y))yEl.value=y;
+}
+
+function renderS(){
+  const rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
+  document.getElementById('cntS').textContent=rows.length+' зап.';
+  const tb=document.getElementById('tbS');
+  if(!rows.length){
+    tb.innerHTML='<tr><td colspan="17"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>';
+    return;
+  }
+  tb.innerHTML=rows.map((r,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
+    <td><span class="badge badge-b">${r.region}</span></td>
+    <td>${r.city}</td>
+    <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
+    <td>${r.fio}</td>
+    <td><code>${r.tab}</code></td>
+    <td style="max-width:200px">${r.pos}</td>
+    <td>${r.car}</td>
+    <td><code>${r.carNum}</code></td>
+    <td>${r.ww}-дн.</td>
+    <td style="text-align:center;font-weight:600">${r.days}</td>
+    <td style="text-align:center;font-weight:600">${r.tripDays||0}</td>
+    <td style="max-width:160px;color:var(--muted);font-size:12px">${r.note||'—'}</td>
+    <td style="font-size:12px">${r.by}</td>
+    <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
+    <td><button class="btn btn-red btn-sm" onclick="delS('${r.id}')">✕</button></td>
+  </tr>`).join('');
+}
+
+function exportS(){
+  const rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
+  if(!rows.length){toast('Нет данных для выгрузки','err');return}
+  const sheet=[
+    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'],
+    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(sheet);
+  ws['!cols']=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Служебный автотранспорт');
+  const suf=isHQ()?'все_регионы':user.region;
+  XLSX.writeFile(wb,'КТ_Служебный_автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   toast('📥 Файл сохранён','ok');
 }
 
@@ -882,13 +1173,16 @@ function exportI(){
 
 // ── STATUS ──
 function renderStatus(){
-  renderStatusPanel('stT',RT,tData,true);
-  renderStatusPanel('stI',RI,iData,false);
+  // СТиОУП в статусе личного авто — только для РИПС Администратора
+  const rtVisible=isRipsAdmin()?RT:RT.filter(r=>r!=='СТиОУП');
+  renderStatusPanel('stT',rtVisible,tData,true,LIMITS);
+  renderStatusPanel('stS',RS,sData,true,LIMITS_S);
+  renderStatusPanel('stI',RI,iData,false,null);
 }
-function renderStatusPanel(cid,regions,data,showLimits){
+function renderStatusPanel(cid,regions,data,showLimits,limitsObj){
   document.getElementById(cid).innerHTML=regions.map(reg=>{
     const n=data.filter(r=>r.region===reg).length,ok=n>0;
-    const lim=LIMITS[reg];
+    const lim=limitsObj?.[reg];
     return`<div class="stdot ${ok?'filled':'empty'}">
       <span>${ok?'✓':'✗'}</span>
       <div style="display:flex;flex-direction:column;line-height:1.3">
