@@ -851,6 +851,7 @@ function doLogin(){
   if(!role){toast('Выберите роль','err');return}
   user={fio,region,role};
   localStorage.setItem('kt_user',JSON.stringify(user));
+  localStorage.setItem('kt_user_ts',Date.now().toString());
   setupListeners();
   showApp();
 }
@@ -1616,7 +1617,15 @@ function onLoginRegionChange(){
 }
 function onLoginRoleChange(){}
 
-// ── BOOT ── (всегда показываем стартовое окно)
+// ── BOOT ──
+const _u=localStorage.getItem('kt_user');
+const _ts=parseInt(localStorage.getItem('kt_user_ts')||'0');
+const _age=Date.now()-_ts;
+if(_u&&_age<30*60*1000){
+  user=JSON.parse(_u);
+  setupListeners();
+  showApp();
+}
 
 // Working days hint listeners
 ['tMonth','tYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHint));
