@@ -219,9 +219,23 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <div class="sthdr">
       <div class="strow">
         <div class="sttitle">📊 Статус заполнения — Личный автотранспорт</div>
-        <button id="btnTariff" class="btn btn-outline-amber btn-sm" onclick="toggleTariffs()" style="display:none">
-          💰 Тарифы
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <select id="stMonthT" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="stYearT" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
+          <button id="btnTariff" class="btn btn-outline-amber btn-sm" onclick="toggleTariffs()" style="display:none">
+            💰 Тарифы
+          </button>
+        </div>
       </div>
       <div class="stgrid" id="stT"></div>
     </div>
@@ -412,6 +426,20 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <div class="sthdr">
       <div class="strow">
         <div class="sttitle">📊 Статус заполнения — Служебный автотранспорт</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <select id="stMonthS" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="stYearS" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
+        </div>
       </div>
       <div class="stgrid" id="stS"></div>
     </div>
@@ -581,6 +609,20 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     <div class="sthdr">
       <div class="strow">
         <div class="sttitle">📊 Статус заполнения — Фактические остатки ТМЗ</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <select id="stMonthI" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="stYearI" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
+        </div>
       </div>
       <div class="stgrid" id="stI"></div>
     </div>
@@ -1434,12 +1476,19 @@ function doExportI(filterReg){
 }
 
 // ── STATUS ──
+function filterByPeriod(data, monthId, yearId){
+  const pm=document.getElementById(monthId)?.value||'all';
+  const py=document.getElementById(yearId)?.value||'all';
+  return data.filter(r=>
+    (pm==='all'||String(r.month)===pm)&&
+    (py==='all'||String(r.year)===py)
+  );
+}
 function renderStatus(){
-  // СТиОУП в статусе личного авто — только для РИПС Администратора
   const rtVisible=isRipsAdmin()?RT:RT.filter(r=>r!=='СТиОУП');
-  renderStatusPanel('stT',rtVisible,tData,true,LIMITS);
-  renderStatusPanel('stS',RS,sData,true,LIMITS_S);
-  renderStatusPanel('stI',RI,iData,false,null);
+  renderStatusPanel('stT',rtVisible,filterByPeriod(tData,'stMonthT','stYearT'),true,LIMITS);
+  renderStatusPanel('stS',RS,filterByPeriod(sData,'stMonthS','stYearS'),true,LIMITS_S);
+  renderStatusPanel('stI',RI,filterByPeriod(iData,'stMonthI','stYearI'),false,null);
 }
 function renderStatusPanel(cid,regions,data,showLimits,limitsObj){
   document.getElementById(cid).innerHTML=regions.map(reg=>{
