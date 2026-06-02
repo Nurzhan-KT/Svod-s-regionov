@@ -312,6 +312,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Специалист по учету ТМЦ</option>
                 <option>Специалист по учету оборудования</option>
                 <option>Технический обследователь</option>
+                <option id="optExpertT" style="display:none">Эксперт</option>
               </select>
             </div>
             <div class="ff">
@@ -466,6 +467,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 <option>Специалист по учету ТМЦ</option>
                 <option>Специалист по учету оборудования</option>
                 <option>Технический обследователь</option>
+                <option id="optExpertS" style="display:none">Эксперт</option>
               </select>
             </div>
             <div class="ff">
@@ -753,6 +755,13 @@ function showApp(){
 
   // Кнопку Тарифы видит и редактирует только роль Администратор
   document.getElementById('btnTariff').style.display=user.role==='admin'?'inline-flex':'none';
+
+  // Должность "Эксперт" — только для администратора
+  const showExpert=user.role==='admin';
+  ['optExpertT','optExpertS'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=showExpert?'':'none';
+  });
 
   // Вкладки автотранспорта: для ответственных по автотранспорту и администратора
   const showT=user.role!=='inventory';
