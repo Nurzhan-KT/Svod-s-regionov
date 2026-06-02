@@ -370,6 +370,18 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <select id="viewFilterT" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
             <option value="all">Все регионы</option>
           </select>
+          <select id="periodMonthT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="periodYearT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
           <button class="btn btn-green" onclick="exportT()">📥 Выгрузить в Excel</button>
         </div>
       </div>
@@ -529,6 +541,18 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <select id="viewFilterS" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
             <option value="all">Все регионы</option>
           </select>
+          <select id="periodMonthS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="periodYearS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
+          </select>
           <button class="btn btn-green" onclick="exportS()">📥 Выгрузить в Excel</button>
         </div>
       </div>
@@ -640,6 +664,18 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
           <span class="export-note" id="exportNoteI"></span>
           <select id="viewFilterI" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
             <option value="all">Все регионы</option>
+          </select>
+          <select id="periodMonthI" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
+            <option value="all">Все месяцы</option>
+            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+          </select>
+          <select id="periodYearI" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
+            <option value="all">Все годы</option>
+            <option value="2024">2024</option><option value="2025">2025</option>
+            <option value="2026">2026</option><option value="2027">2027</option>
           </select>
           <button class="btn btn-green" onclick="exportI()">📥 Выгрузить в Excel</button>
         </div>
@@ -1083,8 +1119,12 @@ function clearTForm(){
 function renderT(){
   const showPayout=hasTariffs();
   const vf=getViewFilter('viewFilterT');
+  const pm=document.getElementById('periodMonthT')?.value||'all';
+  const py=document.getElementById('periodYearT')?.value||'all';
   let rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
   if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
+  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
+  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbT');
   const colspan=showPayout?19:16;
@@ -1255,8 +1295,12 @@ function clearSForm(){
 
 function renderS(){
   const vf=getViewFilter('viewFilterS');
+  const pm=document.getElementById('periodMonthS')?.value||'all';
+  const py=document.getElementById('periodYearS')?.value||'all';
   let rows=isHQ()?sData:sData.filter(r=>r.region===user.region);
   if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
+  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
+  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
   document.getElementById('cntS').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbS');
   if(!rows.length){
@@ -1346,8 +1390,12 @@ function clearIForm(){
 }
 function renderI(){
   const vf=getViewFilter('viewFilterI');
+  const pm=document.getElementById('periodMonthI')?.value||'all';
+  const py=document.getElementById('periodYearI')?.value||'all';
   let rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
   if(isHQ()&&vf!=='all')rows=rows.filter(r=>r.region===vf);
+  if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
+  if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
   document.getElementById('cntI').textContent=rows.length+' зап.';
   const tb=document.getElementById('tbI');
   if(!rows.length){tb.innerHTML='<tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
