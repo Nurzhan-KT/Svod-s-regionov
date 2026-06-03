@@ -1806,7 +1806,7 @@ function calcDrbData(periods){
 
 function renderDrb(){
   const block=document.getElementById('cardDrb');
-  if(!hasTariffs()){block.style.display='none';return;}
+  if(!user||user.role==='inventory'){block.style.display='none';return;}
   block.style.display='';
   const periods=getLast3Months();
   const {rows,totals}=calcDrbData(periods);
