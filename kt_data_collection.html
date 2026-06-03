@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>АО «Казахтелеком» — Сбор данных</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#003087;--blue:#0055AB;--blue2:#0078D7;--pale:#EBF3FC;
+  --green:#1A6B2E;--green-bg:#E6F4EA;
+  --red:#B91C1C;--red-bg:#FEE2E2;
+  --amber:#92400E;--amber-bg:#FEF3C7;
+  --bg:#F0F4F9;--border:#D0D7DE;--text:#1F2328;--muted:#636C76;
+  --sh:0 1px 4px rgba(0,0,0,.08);--sh2:0 4px 16px rgba(0,0,0,.12);
+  --r:10px;--r2:6px;
+}
+html{font-size:14px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* MODAL */
+#loginModal{position:fixed;inset:0;background:rgba(0,20,60,.78);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(6px)}
+.mbox{background:#fff;border-radius:20px;padding:42px 38px;width:min(460px,92vw);box-shadow:var(--sh2);text-align:center}
+.mlogo{width:180px;height:60px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
+.mco{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px}
+.mtitle{font-size:21px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.msub{color:var(--muted);font-size:13px;margin-bottom:26px;line-height:1.5}
+.mf{margin-bottom:14px;text-align:left}
+.mf label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.mf input,.mf select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:14px;font-family:inherit;transition:border-color .2s,box-shadow .2s}
+.mf input:focus,.mf select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,85,171,.12)}
+.btn-login{width:100%;padding:13px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border:none;border-radius:var(--r2);font-size:15px;font-weight:600;cursor:pointer;margin-top:6px;transition:opacity .2s,transform .15s;font-family:inherit}
+.btn-login:hover{opacity:.9;transform:translateY(-1px)}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--blue2) 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 26px;height:58px;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,30,80,.3)}
+.hl{display:flex;align-items:center;gap:13px}
+.hicon{display:flex;align-items:center;justify-content:center}
+.hco{font-size:15px;font-weight:700}.hsub{font-size:11px;opacity:.75}
+.hr{display:flex;align-items:center;gap:14px;font-size:13px}
+.uchip{background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:5px 13px;display:flex;align-items:center;gap:7px}
+.udot{width:8px;height:8px;background:#4ADE80;border-radius:50%}
+.hq-badge{background:rgba(255,200,0,.25);border:1px solid rgba(255,200,0,.5);color:#FFE066;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.btn-exit{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);color:#fff;padding:5px 13px;border-radius:var(--r2);cursor:pointer;font-size:12px;font-family:inherit;transition:background .2s}
+.btn-exit:hover{background:rgba(255,255,255,.22)}
+
+/* TABS */
+.tabbar{background:#fff;border-bottom:2px solid var(--border);padding:0 26px;display:flex;gap:4px}
+.tabbtn{display:flex;align-items:center;gap:9px;padding:13px 26px;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);transition:all .18s;font-family:inherit}
+.tabbtn:hover{color:var(--navy);background:var(--pale);border-radius:8px 8px 0 0}
+.tabbtn.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:700}
+.tabico{font-size:17px}
+
+/* LAYOUT */
+.content{max-width:1420px;margin:0 auto;padding:22px 26px}
+.sec{display:none}.sec.active{display:block}
+
+/* STATUS PANEL */
+.sthdr{background:#fff;border-radius:var(--r);padding:18px 22px;margin-bottom:18px;border:1px solid var(--border);box-shadow:var(--sh)}
+.strow{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+.sttitle{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.stgrid{display:flex;flex-wrap:wrap;gap:9px}
+.stdot{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500}
+.stdot.filled{background:var(--green-bg);color:var(--green);border:1px solid #B7DFBE}
+.stdot.empty{background:var(--red-bg);color:var(--red);border:1px solid #FECACA}
+.cntbubble{background:rgba(0,0,0,.15);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+
+/* TARIFF PANEL */
+.tariff-panel{background:#fff;border-radius:var(--r);border:1px solid #D97706;box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
+.tariff-hd{padding:14px 20px;background:linear-gradient(135deg,#92400E,#B45309);color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tariff-hd-l{display:flex;align-items:center;gap:9px}
+.tariff-body{padding:20px}
+.tariff-desc{color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.5}
+.tariff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:16px}
+.trf{display:flex;flex-direction:column;gap:5px}
+.trf label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.trf input{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:14px;font-family:inherit;font-weight:600;transition:border-color .2s}
+.trf input:focus{outline:none;border-color:#B45309;box-shadow:0 0 0 3px rgba(180,83,9,.12)}
+.formula-box{padding:13px 16px;background:var(--amber-bg);border:1px solid #FDE68A;border-radius:var(--r2);font-size:12.5px;color:var(--amber)}
+.trf-section-title{grid-column:1/-1;font-size:12px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.5px;padding:10px 0 6px;border-bottom:2px solid #FDE68A;margin-bottom:2px}
+
+/* CARD */
+.card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
+.cardhd{padding:14px 20px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cardhd-l{display:flex;align-items:center;gap:9px}
+.cardbody{padding:20px}
+
+/* FORM */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:15px;margin-bottom:16px}
+.ff{display:flex;flex-direction:column;gap:5px}
+.ff.full{grid-column:1/-1}
+.ff label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.ff input,.ff select,.ff textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;color:var(--text);transition:border-color .2s,box-shadow .2s;font-family:inherit;background:#fff}
+.ff input:focus,.ff select:focus,.ff textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,85,171,.1)}
+.ff textarea{resize:vertical;min-height:60px}
+.rrow{display:flex;gap:22px;margin-top:2px}
+.ropt{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px}
+.ropt input{accent-color:var(--navy);width:16px;height:16px}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border:none;border-radius:var(--r2);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .18s;font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:#002070;box-shadow:0 3px 10px rgba(0,32,112,.3)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#145422}
+.btn-amber{background:#B45309;color:#fff}.btn-amber:hover{background:#92400E}
+.btn-outline{background:transparent;border:1.5px solid var(--navy);color:var(--navy)}.btn-outline:hover{background:var(--pale)}
+.btn-outline-amber{background:transparent;border:1.5px solid #B45309;color:#B45309}.btn-outline-amber:hover{background:var(--amber-bg)}
+.btn-outline-amber.active-tariff{background:var(--amber-bg);border-color:#92400E;color:#92400E}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#991B1B}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-ghost{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff}.btn-ghost:hover{background:rgba(255,255,255,.24)}
+.btns{display:flex;gap:11px;flex-wrap:wrap;align-items:center}
+
+/* EXPORT NOTE */
+.export-note{font-size:11.5px;color:rgba(255,255,255,.7);font-style:italic}
+
+/* TABLE */
+.twrap{overflow-x:auto;border-radius:var(--r2)}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+.dt thead{background:var(--navy);color:#fff}
+.dt thead th{padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px}
+.dt thead th.col-payout{background:#92400E}
+.dt tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.dt tbody tr:hover{background:var(--pale)}
+.dt tbody td{padding:9px 12px;vertical-align:middle}
+.et{text-align:center;padding:38px;color:var(--muted)}
+.et .ei{font-size:38px;margin-bottom:10px}
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11.5px;font-weight:600}
+.badge-b{background:var(--pale);color:var(--navy)}
+.badge-g{background:var(--green-bg);color:var(--green)}
+.badge-period{background:#F3F4F6;color:#374151;font-size:11px;padding:2px 8px;border-radius:8px;white-space:nowrap}
+.cntbadge{display:inline-block;background:rgba(255,255,255,.2);padding:2px 9px;border-radius:11px;font-size:12px;margin-left:6px}
+.payout-cell{font-weight:700;color:var(--amber)}
+
+/* TOAST */
+#toast{position:fixed;top:68px;right:22px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;color:#fff;box-shadow:var(--sh2);z-index:9998;transform:translateX(calc(100% + 30px));transition:transform .3s cubic-bezier(.34,1.56,.64,1);max-width:340px}
+#toast.show{transform:translateX(0)}
+#toast.t-ok{background:var(--green)}
+#toast.t-err{background:var(--red)}
+#toast.t-info{background:var(--navy)}
+
+/* COLLAPSIBLE CARD */
+.card-collapsed>.cardbody{display:none}
+.cardhd{cursor:pointer}
+.toggle-chevron{font-size:12px;transition:transform .2s;display:inline-block}
+.card-collapsed .toggle-chevron{transform:rotate(-90deg)}
+
+/* DRB TABLE */
+.drb-table{width:100%;border-collapse:collapse;font-size:12px}
+.drb-table th,.drb-table td{border:1px solid var(--border);padding:6px 10px;text-align:center;white-space:nowrap}
+.drb-table thead tr:first-child th{background:var(--navy);color:#fff;font-weight:700}
+.drb-table thead tr:nth-child(2) th{background:#1a4f8a;color:#fff;font-size:11px}
+.drb-table tbody tr:hover{background:var(--pale)}
+.drb-table .td-reg{text-align:left;font-weight:600}
+.drb-table .td-num{font-weight:700}
+.drb-table .td-sum{color:var(--amber);font-weight:700}
+.drb-table tfoot td{background:#e8f0fe;font-weight:700;border-top:2px solid var(--navy)}
+
+/* EMODAL */
+.emodal-bg{position:fixed;inset:0;background:rgba(0,20,60,.72);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.emodal{background:#fff;border-radius:16px;padding:32px;width:min(420px,92vw);box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.emodal h3{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:10px}
+.emodal p{color:var(--muted);font-size:13px;margin-bottom:18px}
+.emodal-btns{display:flex;gap:12px;margin-top:20px;justify-content:flex-end}
+
+/* MISC */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
+@media(max-width:768px){.hdr,.tabbar,.content{padding-left:14px;padding-right:14px}.fgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginModal">
+  <div class="mbox">
+    <div><div class="mlogo"><img src="Kazakhtelecom_Logo.svg.png" alt="Казахтелеком" style="height:64px;width:auto"></div></div>
+    <h2 class="mtitle">Система сбора данных</h2>
+    <p class="msub">Укажите ваши данные для входа.<br>Они будут отображаться в записях.</p>
+    <div class="mf"><label>ФИО</label><input id="lFio" placeholder="Фамилия Имя Отчество" /></div>
+    <div class="mf">
+      <label>Регион</label>
+      <select id="lRegion">
+        <option value="">— Выберите регион —</option>
+        <option>Центр</option><option>Юг</option><option>Запад</option>
+        <option>Алматы</option><option>Восток</option><option>Север</option>
+        <option>ДРТР</option><option value="HQ">РИПС</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Роль</label>
+      <select id="lRole">
+        <option value="">— Выберите роль —</option>
+        <option value="transport">Ответственный по автотранспорту</option>
+        <option value="inventory">Материально-ответственное лицо (МОЛ)</option>
+        <option value="both">Оба направления</option>
+        <option value="admin">Администратор / Сводная отчётность</option>
+      </select>
+    </div>
+    <button class="btn-login" onclick="doLogin()">Войти в систему</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="hdr" id="appHdr" style="display:none">
+  <div class="hl">
+    <div class="hicon"><img src="Kazakhtelecom_Logo.svg.png" alt="Казахтелеком" style="height:36px;width:auto;filter:brightness(0) invert(1)"></div>
+    <div><div class="hsub" style="margin-top:2px">Система сбора региональных данных</div></div>
+  </div>
+  <div class="hr">
+    <span id="hqBadge" class="hq-badge" style="display:none">⭐ РИПС</span>
+    <div class="uchip"><div class="udot"></div><span id="hName">—</span><span style="opacity:.5">|</span><span id="hRegion" style="opacity:.85"></span></div>
+    <button class="btn-exit" onclick="doLogout()">Выйти</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button class="tabbtn active" id="tabT" onclick="switchTab('T')"><img src="Kazakhtelecom_Logo.svg.png" alt="" style="height:20px;width:auto;vertical-align:middle;opacity:.8"><span>Автотранспортные средства</span></button>
+  <button class="tabbtn" id="tabI" onclick="switchTab('I')"><span class="tabico">📦</span><span>Фактические остатки ТМЗ</span></button>
+</nav>
+
+<!-- CONTENT -->
+<main class="content" id="mainContent" style="display:none">
+
+  <!-- ═══ TRANSPORT ═══ -->
+  <section class="sec active" id="secT">
+
+    <!-- Status header -->
+    <div class="sthdr">
+      <div class="strow">
+        <div class="sttitle">📊 Статус заполнения — Автотранспортные средства</div>
+        <button id="btnTariff" class="btn btn-outline-amber btn-sm" onclick="toggleTariffs()" style="display:none">
+          💰 Тарифы
+        </button>
+      </div>
+      <div class="stgrid" id="stT"></div>
+    </div>
+
+    <!-- Tariff panel (РИПС only, collapsible) -->
+    <div class="tariff-panel" id="tariffPanel" style="display:none">
+      <div class="tariff-hd">
+        <div class="tariff-hd-l"><span>💰</span><span>Тарифы по автотранспорту</span></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleTariffs()">✕ Свернуть</button>
+          <button class="btn btn-sm" style="background:#FDE68A;color:#92400E;font-weight:700" onclick="saveTariffs()">💾 Сохранить</button>
+        </div>
+      </div>
+      <div class="tariff-body">
+        <p class="tariff-desc">Укажите ставки (₸/месяц) по каждой комбинации «топливо × рабочая неделя». При выгрузке отчёта РИПС автоматически рассчитывается сумма к выплате.</p>
+        <div class="tariff-grid" id="tariffGrid"></div>
+        <div class="formula-box">
+          <strong>Формула расчёта суммы к выплате:</strong><br>
+          <code>Тариф (₸) ÷ Норма рабочих дней × Фактически отработано = Сумма к выплате (₸)</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Entry form -->
+    <div class="card" id="cardAddT">
+      <div class="cardhd" onclick="toggleCardT()">
+        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Автотранспорт</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();clearTForm()">Очистить</button>
+          <span class="toggle-chevron" id="chevronAddT">▼</span>
+        </div>
+      </div>
+      <div class="cardbody">
+        <form id="formT" onsubmit="submitT(event)">
+          <div class="fgrid">
+            <div class="ff">
+              <label>Месяц отчётности *</label>
+              <select id="tMonth" required>
+                <option value="">— Месяц —</option>
+                <option value="1">Январь</option><option value="2">Февраль</option>
+                <option value="3">Март</option><option value="4">Апрель</option>
+                <option value="5">Май</option><option value="6">Июнь</option>
+                <option value="7">Июль</option><option value="8">Август</option>
+                <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+                <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Год отчётности *</label>
+              <select id="tYear" required>
+                <option value="">— Год —</option>
+                <option value="2024">2024</option><option value="2025">2025</option>
+                <option value="2026">2026</option><option value="2027">2027</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Регион *</label>
+              <select id="tReg" required onchange="fillTCities()">
+                <option value="">— Выберите регион —</option>
+                <option>Центр</option><option>Юг</option><option>Запад</option>
+                <option>Алматы</option><option>Восток</option><option>Север</option><option>ДРТР</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Город *</label>
+              <select id="tCity" required><option value="">— Сначала выберите регион —</option></select>
+            </div>
+            <div class="ff">
+              <label>ФИО водителя *</label>
+              <input id="tFio" placeholder="Фамилия Имя Отчество" required />
+            </div>
+            <div class="ff">
+              <label>Табельный номер *</label>
+              <input id="tTab" placeholder="00000" required />
+            </div>
+            <div class="ff">
+              <label>Должность *</label>
+              <select id="tPos" required>
+                <option value="">— Выберите должность —</option>
+                <option>Инсталлятор</option>
+                <option>Электромонтер ЛСС</option>
+                <option>Электромонтер ЛСС 4 разряда</option>
+                <option>Электромонтер ЛСС 5 разряда</option>
+                <option>Электромонтер ЛСС 6 разряда</option>
+                <option>Электромонтер ЛСС 7 разряда</option>
+                <option>Инженер*(МОЛ)</option>
+                <option>Инженер (ГРЛС, инсталлятор)</option>
+                <option>Электромеханик</option>
+                <option>Начальник цеха</option>
+                <option>Региональный менеджер</option>
+                <option>Специалист по учету ТМЦ</option>
+                <option>Специалист по учету оборудования</option>
+                <option>Технический обследователь</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Вид топлива *</label>
+              <select id="tFuel" required>
+                <option value="">— Выберите топливо —</option>
+                <option>Бензин</option><option>Газ</option><option>Электричество</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Рабочая неделя *</label>
+              <div class="rrow">
+                <label class="ropt"><input type="radio" name="tWW" value="5" required> 5-дневная</label>
+                <label class="ropt"><input type="radio" name="tWW" value="6"> 6-дневная</label>
+              </div>
+            </div>
+            <div class="ff">
+              <label>Дней отработано *</label>
+              <input type="number" id="tDays" min="0" max="31" placeholder="0" required />
+              <small id="wdHint" style="color:var(--muted);font-size:11.5px;margin-top:3px;min-height:16px;display:block"></small>
+            </div>
+            <div class="ff full">
+              <label>Примечание</label>
+              <textarea id="tNote" placeholder="Дополнительная информация..."></textarea>
+            </div>
+          </div>
+          <div class="btns">
+            <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
+            <button type="button" class="btn btn-outline" onclick="clearTForm()">Очистить форму</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DRB Compensation Block -->
+    <div class="card" id="cardDrb" style="display:none">
+      <div class="cardhd" onclick="toggleDrb()">
+        <div class="cardhd-l"><span>📊</span><span>Информация по компенсации за использование личного автотранспорта сотрудниками ДРБ</span></div>
+        <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+          <button class="btn btn-green btn-sm" onclick="openDrbExportModal()">📥 Выгрузка Excel</button>
+          <span class="toggle-chevron" id="chevronDrb">▼</span>
+        </div>
+      </div>
+      <div class="cardbody">
+        <div class="twrap" id="drbTableWrap"></div>
+      </div>
+    </div>
+
+    <!-- Summary table -->
+    <div class="card" id="cardSumT">
+      <div class="cardhd" onclick="toggleSumT()">
+        <div class="cardhd-l">
+          <span>📋</span><span>Сводная таблица — Автотранспорт</span>
+          <span class="cntbadge" id="cntT">0 зап.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px" onclick="event.stopPropagation()">
+          <span class="export-note" id="exportNoteT"></span>
+          <button class="btn btn-green" onclick="exportT()">📥 Выгрузить в Excel</button>
+          <span class="toggle-chevron" id="chevronSumT">▼</span>
+        </div>
+      </div>
+      <div class="cardbody">
+        <div class="twrap">
+          <table class="dt">
+            <thead>
+              <tr id="tHeadRow">
+                <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО водителя</th>
+                <th>Таб. №</th><th>Должность</th><th>Топливо</th>
+                <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
+                <th>Внёс</th><th>Дата</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tbT">
+              <tr><td colspan="14"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ INVENTORY ═══ -->
+  <section class="sec" id="secI">
+    <div class="sthdr">
+      <div class="strow">
+        <div class="sttitle">📊 Статус заполнения — Фактические остатки ТМЗ</div>
+      </div>
+      <div class="stgrid" id="stI"></div>
+    </div>
+    <div class="card">
+      <div class="cardhd">
+        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Остатки оборудования</span></div>
+        <button class="btn btn-ghost btn-sm" onclick="clearIForm()">Очистить</button>
+      </div>
+      <div class="cardbody">
+        <form id="formI" onsubmit="submitI(event)">
+          <div class="fgrid">
+            <div class="ff">
+              <label>Месяц отчётности *</label>
+              <select id="iMonth" required>
+                <option value="">— Месяц —</option>
+                <option value="1">Январь</option><option value="2">Февраль</option>
+                <option value="3">Март</option><option value="4">Апрель</option>
+                <option value="5">Май</option><option value="6">Июнь</option>
+                <option value="7">Июль</option><option value="8">Август</option>
+                <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+                <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Год отчётности *</label>
+              <select id="iYear" required>
+                <option value="">— Год —</option>
+                <option value="2024">2024</option><option value="2025">2025</option>
+                <option value="2026">2026</option><option value="2027">2027</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Регион *</label>
+              <select id="iReg" required onchange="fillICities()">
+                <option value="">— Выберите регион —</option>
+                <option>Центр</option><option>Юг</option><option>Запад</option>
+                <option>Алматы</option><option>Восток</option><option>Север</option>
+              </select>
+            </div>
+            <div class="ff">
+              <label>Город *</label>
+              <select id="iCity" required><option value="">— Сначала выберите регион —</option></select>
+            </div>
+            <div class="ff">
+              <label>ФИО МОЛ *</label>
+              <input id="iMol" placeholder="Фамилия Имя Отчество" required />
+            </div>
+            <div class="ff">
+              <label>Наименование оборудования *</label>
+              <input id="iEquip" placeholder="Введите наименование" required />
+            </div>
+            <div class="ff">
+              <label>Количество новые *</label>
+              <input type="number" id="iQtyNew" min="0" placeholder="0" required />
+            </div>
+            <div class="ff">
+              <label>Количество б/у *</label>
+              <input type="number" id="iQtyUsed" min="0" placeholder="0" required />
+            </div>
+          </div>
+          <div class="btns">
+            <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
+            <button type="button" class="btn btn-outline" onclick="clearIForm()">Очистить форму</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardhd">
+        <div class="cardhd-l">
+          <span>📋</span><span>Сводная таблица — Остатки ТМЗ</span>
+          <span class="cntbadge" id="cntI">0 зап.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="export-note" id="exportNoteI"></span>
+          <button class="btn btn-green" onclick="exportI()">📥 Выгрузить в Excel</button>
+        </div>
+      </div>
+      <div class="cardbody">
+        <div class="twrap">
+          <table class="dt">
+            <thead><tr>
+              <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО МОЛ</th>
+              <th>Наименование оборудования</th><th>Кол-во новые</th><th>Кол-во б/у</th>
+              <th>Внёс</th><th>Дата</th><th></th>
+            </tr></thead>
+            <tbody id="tbI">
+              <tr><td colspan="11"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+<div id="toast"></div>
+
+<!-- DRB Export Modal -->
+<div id="drbExportModal" style="display:none" class="emodal-bg" onclick="if(event.target===this)closeDrbExportModal()">
+  <div class="emodal">
+    <h3>📥 Выгрузка Excel — Компенсация ДРБ</h3>
+    <p>Выберите период для выгрузки данных</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">С месяца</label>
+        <select id="drbExpMonthFrom" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+          <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+          <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+          <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">Год</label>
+        <select id="drbExpYearFrom" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">По месяц</label>
+        <select id="drbExpMonthTo" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+          <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+          <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+          <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">Год</label>
+        <select id="drbExpYearTo" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+    </div>
+    <div class="emodal-btns">
+      <button class="btn btn-outline" onclick="closeDrbExportModal()">Отмена</button>
+      <button class="btn btn-green" onclick="exportDrb()">📥 Выгрузить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const CITIES={
+  'Центр':['Астана','Кокшетау','Караганда'],
+  'Юг':['Шымкент','Тараз','Кызылорда'],
+  'Запад':['Атырау','Актау','Актобе','Уральск'],
+  'Север':['Костанай','Петропавловск'],
+  'Восток':['Семей','Павлодар','Өскемен'],
+  'Алматы':['Алматы','Талдыкорган']
+};
+CITIES['ДРТР']=Object.values(CITIES).flat();
+const RT=['Центр','Юг','Запад','Алматы','Восток','Север','ДРТР'];
+const RI=['Центр','Юг','Запад','Алматы','Восток','Север'];
+const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const FUELS=['Бензин','Газ','Электричество'];
+const WW_LABELS={'5':'5-дневная','6':'6-дневная'};
+const FIELD_POS=new Set(['Инсталлятор','Электромонтер ЛСС','Электромонтер ЛСС 4 разряда','Электромонтер ЛСС 5 разряда','Электромонтер ЛСС 6 разряда','Электромонтер ЛСС 7 разряда','Инженер (ГРЛС, инсталлятор)','Электромеханик','Технический обследователь']);
+const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха','Региональный менеджер','Специалист по учету ТМЦ','Специалист по учету оборудования']);
+function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'stationary':null}
+
+// ── STATE ──
+let user=null, tData=[], iData=[], tariffs={};
+
+function genId(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
+function isHQ(){return user&&user.region==='HQ'}
+function periodLabel(m,y){return MONTHS[+m]+' '+y}
+function getRate(pos,fuel,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffs[st]?.[fuel]?.[ww]||0)}
+
+// ── PERSISTENCE ──
+function load(){
+  tData=JSON.parse(localStorage.getItem('kt_t')||'[]');
+  iData=JSON.parse(localStorage.getItem('kt_i')||'[]');
+  tariffs=JSON.parse(localStorage.getItem('kt_tariffs')||'{}');
+}
+function save(){
+  localStorage.setItem('kt_t',JSON.stringify(tData));
+  localStorage.setItem('kt_i',JSON.stringify(iData));
+}
+
+// ── AUTH ──
+function doLogin(){
+  const fio=document.getElementById('lFio').value.trim();
+  const region=document.getElementById('lRegion').value;
+  const role=document.getElementById('lRole').value;
+  if(!fio){toast('Укажите ФИО','err');return}
+  if(!region){toast('Выберите регион','err');return}
+  if(!role){toast('Выберите роль','err');return}
+  user={fio,region,role};
+  localStorage.setItem('kt_user',JSON.stringify(user));
+  showApp();
+}
+function doLogout(){
+  if(!confirm('Выйти? Все данные сохранены локально.'))return;
+  localStorage.removeItem('kt_user');user=null;
+  document.getElementById('loginModal').style.display='flex';
+  ['appHdr','tabbar','mainContent'].forEach(i=>document.getElementById(i).style.display='none');
+}
+function showApp(){
+  document.getElementById('loginModal').style.display='none';
+  document.getElementById('appHdr').style.display='flex';
+  document.getElementById('tabbar').style.display='flex';
+  document.getElementById('mainContent').style.display='block';
+  document.getElementById('hName').textContent=user.fio;
+  document.getElementById('hRegion').textContent=user.region==='HQ'?'РИПС':user.region;
+  document.getElementById('hqBadge').style.display=isHQ()?'inline-block':'none';
+  document.getElementById('btnTariff').style.display=isHQ()?'inline-flex':'none';
+
+  if(RT.includes(user.region)){document.getElementById('tReg').value=user.region;fillTCities()}
+  if(RI.includes(user.region)){document.getElementById('iReg').value=user.region;fillICities()}
+
+  const now=new Date(),m=now.getMonth()+1,y=now.getFullYear().toString();
+  ['tMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
+  ['tYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
+
+  renderTariffGrid();
+  updateExportNotes();
+  rebuildTHead();
+  renderT();renderI();renderStatus();renderDrb();
+}
+function updateExportNotes(){
+  const note=isHQ()?'Выгрузка: все регионы + расчёт выплат':'Выгрузка: только ваш регион';
+  document.getElementById('exportNoteT').textContent=note;
+  document.getElementById('exportNoteI').textContent=note;
+}
+
+// ── TABS ──
+function switchTab(t){
+  ['T','I'].forEach(x=>{
+    document.getElementById('sec'+x).classList.toggle('active',x===t);
+    document.getElementById('tab'+x).classList.toggle('active',x===t);
+  });
+}
+
+// ── TARIFFS ──
+let tariffOpen=false;
+function toggleTariffs(){
+  tariffOpen=!tariffOpen;
+  document.getElementById('tariffPanel').style.display=tariffOpen?'block':'none';
+  document.getElementById('btnTariff').classList.toggle('active-tariff',tariffOpen);
+}
+
+function renderTariffGrid(){
+  const grid=document.getElementById('tariffGrid');
+  if(!grid)return;
+  const section=(type,label)=>`<div class="trf-section-title">${label}</div>`+
+    FUELS.flatMap(fuel=>['5','6'].map(ww=>{
+      const rate=Number(tariffs[type]?.[fuel]?.[ww]||0);
+      return`<div class="trf"><label>${fuel} / ${WW_LABELS[ww]}</label>
+        <input type="number" min="0" placeholder="0" value="${rate}"
+          data-stype="${type}" data-fuel="${fuel}" data-ww="${ww}" /></div>`;
+    })).join('');
+  grid.innerHTML=section('field','🚗 Выездной состав')+section('stationary','🏢 Стационарный состав');
+}
+
+function saveTariffs(){
+  tariffs={};
+  document.querySelectorAll('#tariffGrid input').forEach(inp=>{
+    const {stype,fuel,ww}=inp.dataset;
+    if(!tariffs[stype])tariffs[stype]={};
+    if(!tariffs[stype][fuel])tariffs[stype][fuel]={};
+    tariffs[stype][fuel][ww]=parseFloat(inp.value)||0;
+  });
+  localStorage.setItem('kt_tariffs',JSON.stringify(tariffs));
+  rebuildTHead();renderT();renderDrb();
+  toast('✓ Тарифы сохранены','ok');
+}
+
+function hasTariffs(){
+  return['field','stationary'].some(st=>FUELS.some(f=>['5','6'].some(w=>Number(tariffs[st]?.[f]?.[w]||0)>0)));
+}
+
+// Rebuild transport table header (add payout cols for РИПС when tariffs set)
+function rebuildTHead(){
+  const hq=isHQ()&&hasTariffs();
+  const colspan=hq?17:14;
+  document.getElementById('tHeadRow').innerHTML=`
+    <th>#</th><th>Период</th><th>Регион</th><th>Город</th><th>ФИО водителя</th>
+    <th>Таб. №</th><th>Должность</th><th>Топливо</th>
+    <th>Раб. неделя</th><th>Дней отраб.</th><th>Примечание</th>
+    <th>Внёс</th><th>Дата</th>
+    ${hq?'<th class="col-payout">Тариф (₸)</th><th class="col-payout">Норма дней</th><th class="col-payout">Сумма к выплате (₸)</th>':''}
+    <th></th>`;
+  // fix empty-state colspan
+  const emp=document.getElementById('tbT').querySelector('td[colspan]');
+  if(emp)emp.setAttribute('colspan',colspan);
+}
+
+// ── CITY FILL ──
+function fillCitySelect(sel,region){
+  sel.innerHTML='';
+  if(!region||!CITIES[region]){sel.innerHTML='<option value="">— Сначала выберите регион —</option>';return}
+  const def=document.createElement('option');def.value='';def.textContent='— Выберите город —';sel.appendChild(def);
+  CITIES[region].forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});
+}
+function fillTCities(){fillCitySelect(document.getElementById('tCity'),document.getElementById('tReg').value)}
+function fillICities(){fillCitySelect(document.getElementById('iCity'),document.getElementById('iReg').value)}
+
+// ── TRANSPORT ──
+function submitT(e){
+  e.preventDefault();
+  const ww=document.querySelector('input[name="tWW"]:checked');
+  if(!ww){toast('Выберите рабочую неделю','err');return}
+  const rec={
+    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    month:document.getElementById('tMonth').value,
+    year:document.getElementById('tYear').value,
+    region:document.getElementById('tReg').value,
+    city:document.getElementById('tCity').value,
+    fio:document.getElementById('tFio').value.trim(),
+    tab:document.getElementById('tTab').value.trim(),
+    pos:document.getElementById('tPos').value,
+    fuel:document.getElementById('tFuel').value,
+    ww:ww.value,
+    days:parseInt(document.getElementById('tDays').value),
+    note:document.getElementById('tNote').value.trim()
+  };
+  tData.push(rec);save();
+  const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city};
+  document.getElementById('formT').reset();
+  document.getElementById('tMonth').value=sv.month;
+  document.getElementById('tYear').value=sv.year;
+  document.getElementById('tReg').value=sv.reg;fillTCities();
+  document.getElementById('tCity').value=sv.city;
+  renderT();renderDrb();renderStatus();toast('✓ Запись добавлена','ok');
+}
+function delT(id){
+  if(!confirm('Удалить эту запись?'))return;
+  tData=tData.filter(r=>r.id!==id);save();renderT();renderDrb();renderStatus();toast('Запись удалена','info');
+}
+function clearTForm(){
+  document.getElementById('formT').reset();
+  document.getElementById('tCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
+  if(RT.includes(user?.region)){document.getElementById('tReg').value=user.region;fillTCities()}
+  const now=new Date(),y=now.getFullYear().toString();
+  document.getElementById('tMonth').value=now.getMonth()+1;
+  const yEl=document.getElementById('tYear');
+  if([...yEl.options].some(o=>o.value===y))yEl.value=y;
+}
+
+function renderT(){
+  const showPayout=isHQ()&&hasTariffs();
+  const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
+  document.getElementById('cntT').textContent=rows.length+' зап.';
+  const tb=document.getElementById('tbT');
+  const colspan=showPayout?17:14;
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="${colspan}"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML=rows.map((r,i)=>{
+    let payoutCells='';
+    if(showPayout){
+      const rate=getRate(r.pos,r.fuel,r.ww);
+      const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+      const payout=Math.round(rate/norm*r.days);
+      payoutCells=`
+        <td style="text-align:right">${rate.toLocaleString('ru')}</td>
+        <td style="text-align:center">${norm}</td>
+        <td class="payout-cell" style="text-align:right">${payout.toLocaleString('ru')}</td>`;
+    }
+    return`<tr>
+      <td>${i+1}</td>
+      <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
+      <td><span class="badge badge-b">${r.region}</span></td>
+      <td>${r.city}</td>
+      <td>${r.fio}</td>
+      <td><code>${r.tab}</code></td>
+      <td style="max-width:200px">${r.pos}</td>
+      <td><span class="badge badge-g">${r.fuel}</span></td>
+      <td>${r.ww}-дн.</td>
+      <td style="text-align:center;font-weight:600">${r.days}</td>
+      <td style="max-width:160px;color:var(--muted);font-size:12px">${r.note||'—'}</td>
+      <td style="font-size:12px">${r.by}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
+      ${payoutCells}
+      <td><button class="btn btn-red btn-sm" onclick="delT('${r.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function exportT(){
+  const showPayout=isHQ()&&hasTariffs();
+  const rows=isHQ()?tData:tData.filter(r=>r.region===user.region);
+  if(!rows.length){toast('Нет данных для выгрузки','err');return}
+
+  const headers=['№','Месяц','Год','Регион','Город','ФИО водителя','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Примечание','Внёс','Дата'];
+  const colW=[4,14,8,12,16,28,12,30,14,14,12,28,24,18];
+  if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
+
+  const sheet=[headers,...rows.map((r,i)=>{
+    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.fio,r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.note||'',r.by,r.ts];
+    if(showPayout){
+      const rate=getRate(r.pos,r.fuel,r.ww);
+      const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+      base.push(rate,norm,Math.round(rate/norm*r.days));
+    }
+    return base;
+  })];
+
+  const ws=XLSX.utils.aoa_to_sheet(sheet);
+  ws['!cols']=colW.map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Автотранспорт');
+  const suf=isHQ()?'все_регионы':user.region;
+  XLSX.writeFile(wb,'КТ_Автотранспорт_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── INVENTORY ──
+function submitI(e){
+  e.preventDefault();
+  const rec={
+    id:genId(),ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
+    month:document.getElementById('iMonth').value,
+    year:document.getElementById('iYear').value,
+    region:document.getElementById('iReg').value,
+    city:document.getElementById('iCity').value,
+    mol:document.getElementById('iMol').value.trim(),
+    equip:document.getElementById('iEquip').value.trim(),
+    qtyNew:parseInt(document.getElementById('iQtyNew').value)||0,
+    qtyUsed:parseInt(document.getElementById('iQtyUsed').value)||0
+  };
+  iData.push(rec);save();
+  const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city,mol:rec.mol};
+  document.getElementById('formI').reset();
+  document.getElementById('iMonth').value=sv.month;
+  document.getElementById('iYear').value=sv.year;
+  document.getElementById('iReg').value=sv.reg;fillICities();
+  document.getElementById('iCity').value=sv.city;
+  document.getElementById('iMol').value=sv.mol;
+  renderI();renderStatus();toast('✓ Запись добавлена','ok');
+}
+function delI(id){
+  if(!confirm('Удалить эту запись?'))return;
+  iData=iData.filter(r=>r.id!==id);save();renderI();renderStatus();toast('Запись удалена','info');
+}
+function clearIForm(){
+  document.getElementById('formI').reset();
+  document.getElementById('iCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
+  if(RI.includes(user?.region)){document.getElementById('iReg').value=user.region;fillICities()}
+  const now=new Date(),y=now.getFullYear().toString();
+  document.getElementById('iMonth').value=now.getMonth()+1;
+  const yEl=document.getElementById('iYear');
+  if([...yEl.options].some(o=>o.value===y))yEl.value=y;
+}
+function renderI(){
+  const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
+  document.getElementById('cntI').textContent=rows.length+' зап.';
+  const tb=document.getElementById('tbI');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="11"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
+  tb.innerHTML=rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
+      <td><span class="badge badge-b">${r.region}</span></td>
+      <td>${r.city}</td>
+      <td>${r.mol}</td>
+      <td>${r.equip}</td>
+      <td style="text-align:center;font-weight:600">${r.qtyNew??r.qty??0}</td>
+      <td style="text-align:center;font-weight:600">${r.qtyUsed??0}</td>
+      <td style="font-size:12px">${r.by}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
+      <td><button class="btn btn-red btn-sm" onclick="delI('${r.id}')">✕</button></td>
+    </tr>`).join('');
+}
+function exportI(){
+  const rows=isHQ()?iData:iData.filter(r=>r.region===user.region);
+  if(!rows.length){toast('Нет данных для выгрузки','err');return}
+  const sheet=[
+    ['№','Месяц','Год','Регион','Город','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Внёс','Дата'],
+    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.mol,r.equip,r.qtyNew??r.qty??0,r.qtyUsed??0,r.by,r.ts])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(sheet);
+  ws['!cols']=[4,14,8,12,16,28,38,13,13,24,18].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Фактические остатки');
+  const suf=isHQ()?'все_регионы':user.region;
+  XLSX.writeFile(wb,'КТ_Фактические_остатки_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── STATUS ──
+function renderStatus(){
+  renderStatusPanel('stT',RT,tData);
+  renderStatusPanel('stI',RI,iData);
+}
+function renderStatusPanel(cid,regions,data){
+  document.getElementById(cid).innerHTML=regions.map(reg=>{
+    const n=data.filter(r=>r.region===reg).length,ok=n>0;
+    return`<div class="stdot ${ok?'filled':'empty'}">
+      <span>${ok?'✓':'✗'}</span><span>${reg}</span>
+      ${ok?`<span class="cntbubble">${n}</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── WORKING DAYS (КЗ производственный календарь) ──
+const KZ_HOLS={
+  2024:['01-01','01-02','01-07','03-08','03-21','03-22','03-23','05-01','05-07','05-09','07-06','08-30','12-16','12-17'],
+  2025:['01-01','01-02','01-07','03-08','03-21','03-22','03-23','05-01','05-07','05-09','07-06','08-30','12-16','12-17'],
+  2026:['01-01','01-02','01-07','03-08','03-21','03-22','03-23','05-01','05-07','05-09','07-06','08-30','12-16','12-17'],
+  2027:['01-01','01-02','01-07','03-08','03-21','03-22','03-23','05-01','05-07','05-09','07-06','08-30','12-16','12-17'],
+};
+function calcWorkDays(month,year,weekType){
+  const m=parseInt(month),y=parseInt(year);
+  if(!m||!y||!weekType)return null;
+  const days=new Date(y,m,0).getDate();
+  const hols=new Set((KZ_HOLS[y]||[]).filter(s=>+s.split('-')[0]===m).map(s=>+s.split('-')[1]));
+  let c=0;
+  for(let d=1;d<=days;d++){
+    if(hols.has(d))continue;
+    const dw=new Date(y,m-1,d).getDay();
+    if(weekType==='6'&&dw>=1&&dw<=6)c++;
+    else if(weekType==='5'&&dw>=1&&dw<=5)c++;
+  }
+  return c;
+}
+function updateWdHint(){
+  const m=document.getElementById('tMonth')?.value;
+  const y=document.getElementById('tYear')?.value;
+  const ww=document.querySelector('input[name="tWW"]:checked')?.value;
+  const hint=document.getElementById('wdHint');
+  if(!hint)return;
+  const n=calcWorkDays(m,y,ww);
+  hint.textContent=n!=null?`Норма рабочих дней в месяце: ${n} (ориентировочно, без учёта переносов)`:'';
+}
+
+// ── COLLAPSIBLE CARDS ──
+function toggleCardT(){
+  const c=document.getElementById('cardAddT');
+  c.classList.toggle('card-collapsed');
+  document.getElementById('chevronAddT').textContent=c.classList.contains('card-collapsed')?'▶':'▼';
+}
+function toggleSumT(){
+  const c=document.getElementById('cardSumT');
+  c.classList.toggle('card-collapsed');
+  document.getElementById('chevronSumT').textContent=c.classList.contains('card-collapsed')?'▶':'▼';
+}
+function toggleDrb(){
+  const c=document.getElementById('cardDrb');
+  c.classList.toggle('card-collapsed');
+  document.getElementById('chevronDrb').textContent=c.classList.contains('card-collapsed')?'▶':'▼';
+}
+
+// ── DRB BLOCK ──
+const DRB_REGIONS=['Центр','Алматы','Восток','Запад','Север','Юг'];
+const MGT_POS=new Set(['Начальник цеха','Региональный менеджер']);
+
+function getLast3Months(){
+  const now=new Date(),res=[];
+  for(let i=2;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    res.push({month:d.getMonth()+1,year:d.getFullYear()});
+  }
+  return res;
+}
+function getDrbPeriods(fromM,fromY,toM,toY){
+  const res=[];
+  let m=parseInt(fromM),y=parseInt(fromY);
+  const em=parseInt(toM),ey=parseInt(toY);
+  while(y<ey||(y===ey&&m<=em)){res.push({month:m,year:y});m++;if(m>12){m=1;y++;}}
+  return res;
+}
+function calcDrbData(periods){
+  const rows=DRB_REGIONS.map(reg=>({
+    reg,
+    cols:periods.map(({month,year})=>{
+      const recs=tData.filter(r=>r.region===reg&&String(r.month)===String(month)&&String(r.year)===String(year));
+      let cnt=0,sum=0,mgtCnt=0,mgtSum=0;
+      recs.forEach(r=>{
+        const rate=getRate(r.pos,r.fuel,r.ww);
+        const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+        const pay=rate?Math.round(rate/norm*r.days):0;
+        cnt++;sum+=pay;
+        if(MGT_POS.has(r.pos)){mgtCnt++;mgtSum+=pay;}
+      });
+      return{cnt,sum,mgtCnt,mgtSum};
+    })
+  }));
+  const totals=periods.map((_,pi)=>({
+    cnt:rows.reduce((a,r)=>a+r.cols[pi].cnt,0),
+    sum:rows.reduce((a,r)=>a+r.cols[pi].sum,0),
+    mgtCnt:rows.reduce((a,r)=>a+r.cols[pi].mgtCnt,0),
+    mgtSum:rows.reduce((a,r)=>a+r.cols[pi].mgtSum,0)
+  }));
+  return{rows,totals};
+}
+function renderDrb(){
+  const block=document.getElementById('cardDrb');
+  if(!(isHQ()&&hasTariffs())){block.style.display='none';return;}
+  block.style.display='';
+  const periods=getLast3Months();
+  const{rows,totals}=calcDrbData(periods);
+  const fmt=v=>v?(v/1000).toFixed(1):'—';
+  let h1='<th rowspan="2" style="min-width:28px">№</th><th rowspan="2" style="text-align:left">Регион</th>';
+  let h2='';
+  periods.forEach(({month,year})=>{
+    h1+=`<th colspan="4">${MONTHS[month]} ${year}</th>`;
+    h2+=`<th>кол-во<br>сотрудников</th><th>факт в тыс.<br>тенге</th><th>в т.ч.<br>рук.состав</th><th>факт в тыс.<br>тенге</th>`;
+  });
+  let tbody=rows.map((r,i)=>{
+    const cells=r.cols.map(c=>`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`).join('');
+    return`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
+  }).join('');
+  let tfoot='<tr><td colspan="2" style="text-align:left">Итого</td>'+
+    totals.map(t=>`<td class="td-num">${t.cnt||'—'}</td><td class="td-sum">${fmt(t.sum)}</td><td class="td-num">${t.mgtCnt||'—'}</td><td class="td-sum">${fmt(t.mgtSum)}</td>`).join('')+'</tr>';
+  document.getElementById('drbTableWrap').innerHTML=
+    `<table class="drb-table"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${tbody}</tbody><tfoot>${tfoot}</tfoot></table>`;
+}
+function openDrbExportModal(){
+  const m3=getLast3Months();
+  document.getElementById('drbExpMonthFrom').value=m3[0].month;
+  document.getElementById('drbExpYearFrom').value=m3[0].year;
+  document.getElementById('drbExpMonthTo').value=m3[2].month;
+  document.getElementById('drbExpYearTo').value=m3[2].year;
+  document.getElementById('drbExportModal').style.display='flex';
+}
+function closeDrbExportModal(){document.getElementById('drbExportModal').style.display='none';}
+function exportDrb(){
+  const fromM=document.getElementById('drbExpMonthFrom').value;
+  const fromY=document.getElementById('drbExpYearFrom').value;
+  const toM=document.getElementById('drbExpMonthTo').value;
+  const toY=document.getElementById('drbExpYearTo').value;
+  const periods=getDrbPeriods(fromM,fromY,toM,toY);
+  if(!periods.length){toast('Неверный период','err');return;}
+  const{rows,totals}=calcDrbData(periods);
+  const fmt=v=>v?(v/1000):0;
+  const h1=['№','Регион'];
+  const h2=['',''];
+  periods.forEach(({month,year})=>{
+    const lbl=`${MONTHS[month]} ${year}`;
+    h1.push(lbl,'','','');
+    h2.push('кол-во сотрудников','факт в тыс.тенге','в т.ч. рук.состав','факт в тыс.тенге');
+  });
+  const dataRows=rows.map((r,i)=>{
+    const row=[i+1,r.reg];
+    r.cols.forEach(c=>{row.push(c.cnt,fmt(c.sum),c.mgtCnt,fmt(c.mgtSum));});
+    return row;
+  });
+  const totRow=['','Итого'];
+  totals.forEach(t=>{totRow.push(t.cnt,fmt(t.sum),t.mgtCnt,fmt(t.mgtSum));});
+  dataRows.push(totRow);
+  const ws=XLSX.utils.aoa_to_sheet([h1,h2,...dataRows]);
+  ws['!merges']=periods.map((_,pi)=>({s:{r:0,c:2+pi*4},e:{r:0,c:5+pi*4}}));
+  ws['!cols']=[{wch:4},{wch:14},...periods.flatMap(()=>[{wch:16},{wch:16},{wch:14},{wch:16}])];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Компенсация ДРБ');
+  XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
+  closeDrbExportModal();
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── TOAST ──
+let _tt=null;
+function toast(msg,type='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='t-'+type;el.classList.add('show');
+  if(_tt)clearTimeout(_tt);
+  _tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── BOOT ──
+load();
+const _u=localStorage.getItem('kt_user');
+if(_u){user=JSON.parse(_u);showApp()}
+
+// Working days hint listeners
+['tMonth','tYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHint));
+document.querySelectorAll('input[name="tWW"]').forEach(r=>r.addEventListener('change',updateWdHint));
+</script>
+</body>
+</html>
