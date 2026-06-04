@@ -48,14 +48,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-exit:hover{background:rgba(255,255,255,.22)}
 
 /* TABS */
-.tabbar{background:#fff;border-bottom:2px solid var(--border);padding:0 26px;display:flex;gap:4px}
+.tabbar{background:#fff;border-bottom:2px solid var(--border);padding:0 26px;display:flex;gap:4px;position:fixed;top:58px;left:0;right:0;z-index:150;box-shadow:0 2px 6px rgba(0,0,0,.06)}
 .tabbtn{display:flex;align-items:center;gap:9px;padding:13px 26px;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);transition:all .18s;font-family:inherit}
 .tabbtn:hover{color:var(--navy);background:var(--pale);border-radius:8px 8px 0 0}
 .tabbtn.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:700}
 .tabico{font-size:17px}
 
 /* LAYOUT */
-.content{max-width:1420px;margin:0 auto;padding:22px 26px}
+.content{max-width:1420px;margin:0 auto;padding:22px 26px;padding-top:72px}
 .sec{display:none}.sec.active{display:block}
 
 /* STATUS PANEL */
@@ -1037,6 +1037,7 @@ function showApp(){
   const now=new Date(),m=now.getMonth()+1,y=now.getFullYear().toString();
   ['tMonth','sMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
   ['tYear','sYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
+  updateWdHint();updateWdHintS();
 
   // Фильтры по регионам — только для РИПС/Администратор
   const showFilter=isRipsAdmin();
@@ -1808,41 +1809,57 @@ function renderDrb(){
   const block=document.getElementById('cardDrb');
   if(!isRipsAdmin()){block.style.display='none';return;}
   block.style.display='';
-  const periods=getLast3Months();
-  const {rows,totals}=calcDrbData(periods);
-  const fmt=v=>v?(v/1000).toFixed(1):'—';
+  const wrap=document.getElementById('drbTableWrap');
+  if(!wrap)return;
+  try{
+    const periods=getLast3Months();
+    const {rows,totals}=calcDrbData(periods);
+    const fmt=v=>v?(v/1000).toFixed(1):'—';
 
-  let headMonth='<th rowspan="2" style="min-width:30px">№</th><th rowspan="2">Регион</th>';
-  let headSub='';
-  periods.forEach(({month,year})=>{
-    headMonth+=`<th colspan="4">${MONTHS[month]} ${year}</th>`;
-    headSub+=`<th>кол-во<br>сотрудников</th><th>факт в тыс.<br>тенге</th><th>в т.ч.<br>рук.состав</th><th>факт в тыс.<br>тенге</th>`;
-  });
-
-  let tbody='';
-  rows.forEach((r,i)=>{
-    let cells='';
-    r.cols.forEach(c=>{
-      cells+=`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`;
+    let headMonth='<th rowspan="2" style="min-width:30px">№</th><th rowspan="2">Регион</th>';
+    let headSub='';
+    periods.forEach(({month,year})=>{
+      headMonth+=`<th colspan="4">${MONTHS[month]} ${year}</th>`;
+      headSub+=`<th>кол-во<br>сотрудников</th><th>факт в тыс.<br>тенге</th><th>в т.ч.<br>рук.состав</th><th>факт в тыс.<br>тенге</th>`;
     });
-    tbody+=`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
-  });
 
-  let tfoot='<tr><td colspan="2" style="text-align:left;font-weight:700">Итого</td>';
-  totals.forEach(t=>{
-    tfoot+=`<td class="td-num">${t.cnt||'—'}</td><td class="td-sum">${fmt(t.sum)}</td><td class="td-num">${t.mgtCnt||'—'}</td><td class="td-sum">${fmt(t.mgtSum)}</td>`;
-  });
-  tfoot+='</tr>';
+    let tbody='';
+    rows.forEach((r,i)=>{
+      let cells='';
+      r.cols.forEach(c=>{
+        cells+=`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`;
+      });
+      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
+    });
 
-  document.getElementById('drbTableWrap').innerHTML=`
-    <table class="drb-table">
-      <thead>
-        <tr>${headMonth}</tr>
-        <tr>${headSub}</tr>
-      </thead>
-      <tbody>${tbody}</tbody>
-      <tfoot>${tfoot}</tfoot>
-    </table>`;
+    let tfoot='<tr><td colspan="2" style="text-align:left;font-weight:700">Итого</td>';
+    totals.forEach(t=>{
+      tfoot+=`<td class="td-num">${t.cnt||'—'}</td><td class="td-sum">${fmt(t.sum)}</td><td class="td-num">${t.mgtCnt||'—'}</td><td class="td-sum">${fmt(t.mgtSum)}</td>`;
+    });
+    tfoot+='</tr>';
+
+    const hasData=rows.some(r=>r.cols.some(c=>c.cnt>0));
+    if(!hasData&&tData.length===0){
+      wrap.innerHTML='<p style="color:var(--muted);padding:16px;font-size:13px">⏳ Загрузка данных...</p>';
+      return;
+    }
+    if(!hasData){
+      wrap.innerHTML='<p style="color:var(--muted);padding:16px;font-size:13px">Нет данных за последние 3 месяца для регионов ДРБ.</p>';
+      return;
+    }
+
+    wrap.innerHTML=`
+      <table class="drb-table">
+        <thead>
+          <tr>${headMonth}</tr>
+          <tr>${headSub}</tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+        <tfoot>${tfoot}</tfoot>
+      </table>`;
+  }catch(e){
+    wrap.innerHTML=`<p style="color:var(--red);padding:16px;font-size:13px">Ошибка рендера: ${e.message}</p>`;
+  }
 }
 
 function openDrbExportModal(){
