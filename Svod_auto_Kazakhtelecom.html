@@ -1829,21 +1829,37 @@ function getChangesRows(col){
   const b=user?.branch||'ДРБ';
   return changesData.filter(r=>r.col===col&&(isHQ()?recBranch(r)==='ДРБ':r.branch===b));
 }
+function diffCell(bVal,aVal,fmt){
+  // fmt(val) — форматирует значение для отображения
+  const f=fmt||(v=>v||'—');
+  const bStr=String(bVal??'');
+  const aStr=String(aVal??'');
+  if(bStr===aStr) return f(aVal);
+  return `<span style="color:var(--muted);text-decoration:line-through;font-size:11px">${f(bVal)}</span><br><span>${f(aVal)}</span>`;
+}
 function renderChangesTable(tb,col,colspan){
   const rows=getChangesRows(col);
   if(!rows.length){tb.innerHTML=`<tr><td colspan="${colspan}"><div class="et"><div class="ei">📋</div>Нет записей об изменениях</div></td></tr>`;return;}
   tb.innerHTML=rows.map((r,i)=>{
     const isEdit=r.type==='edit';
-    const rec=r.after||r.before||{};
+    const b=r.before||{};
+    const a=r.after||b;
+    const rec=isEdit?a:(b);
+    // Для удаления просто показываем значения без diff
+    const dc=(bv,av,fmt)=>isEdit?diffCell(bv,av,fmt):(fmt?fmt(bv||av):bv||av||'—');
     return`<tr class="${isEdit?'change-row-edit':'change-row-del'}">
       <td>${i+1}</td>
       <td><span class="${isEdit?'change-badge-edit':'change-badge-del'}">${isEdit?'✏ Правка':'🗑 Удаление'}</span></td>
-      <td><span class="badge badge-b">${dispReg(rec.region||'')}</span></td>
-      <td>${rec.city||'—'}</td>
-      <td>${rec.fio||'—'}${statusBadge(rec)}</td>
-      <td><code>${rec.tab||'—'}</code></td>
-      <td>${rec.pos||'—'}</td>
-      <td>${isEdit&&r.before?'<small style="color:var(--muted);text-decoration:line-through">'+periodLabel(r.before.month,r.before.year)+'</small><br>':''}<span class="badge-period">${periodLabel(rec.month,rec.year)}</span></td>
+      <td>${dc(b.region,a.region,v=>`<span class="badge badge-b">${dispReg(v||'')}</span>`)}</td>
+      <td>${dc(b.city,a.city)}</td>
+      <td>${dc(b.fio,a.fio)}${statusBadge(rec)}</td>
+      <td>${dc(b.tab,a.tab,v=>`<code>${v||'—'}</code>`)}</td>
+      <td style="max-width:200px">${dc(b.pos,a.pos)}</td>
+      <td>${isEdit?diffCell(periodLabel(b.month,b.year),periodLabel(a.month,a.year),v=>`<span class="badge-period">${v}</span>`):('<span class="badge-period">'+periodLabel(rec.month,rec.year)+'</span>')}</td>
+      <td>${dc(b.fuel,a.fuel,v=>`<span class="badge badge-g">${v||'—'}</span>`)}</td>
+      <td>${dc(b.ww,a.ww,v=>v?v+'-дн.':'—')}</td>
+      <td style="text-align:center">${dc(b.days,a.days)}</td>
+      <td style="text-align:center">${dc(b.tripDays||0,a.tripDays||0)}</td>
       <td style="font-size:12px">${r.by||'—'}</td>
       <td style="font-size:11px;white-space:nowrap">${r.ts||'—'}</td>
     </tr>`;
@@ -1856,8 +1872,8 @@ function renderT(){
   const tb=document.getElementById('tbT');
   if(showChanges){
     document.getElementById('cntT').textContent='лог изменений';
-    document.getElementById('tHeadRow').innerHTML='<th>#</th><th>Тип</th><th>Регион</th><th>Цех</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Период</th><th>Кто изменил</th><th>Дата</th>';
-    renderChangesTable(tb,'transport',10);
+    document.getElementById('tHeadRow').innerHTML='<th>#</th><th>Тип</th><th>Регион</th><th>Цех</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Период</th><th>Топливо</th><th>График</th><th>Дней</th><th>Команд.</th><th>Кто изменил</th><th>Дата</th>';
+    renderChangesTable(tb,'transport',14);
     initTopScroll('topScrollT','topScrollInnerT','twrapT');
     return;
   }
@@ -2088,8 +2104,8 @@ function renderS(){
   const tb=document.getElementById('tbS');
   if(showChanges){
     document.getElementById('cntS').textContent='лог изменений';
-    document.getElementById('sHeadRow').innerHTML='<th>#</th><th>Тип</th><th>Регион</th><th>Цех</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Период</th><th>Кто изменил</th><th>Дата</th>';
-    renderChangesTable(tb,'service',10);
+    document.getElementById('sHeadRow').innerHTML='<th>#</th><th>Тип</th><th>Регион</th><th>Цех</th><th>ФИО</th><th>Таб. №</th><th>Должность</th><th>Период</th><th>Топливо</th><th>График</th><th>Дней</th><th>Команд.</th><th>Кто изменил</th><th>Дата</th>';
+    renderChangesTable(tb,'service',14);
     initTopScroll('topScrollS','topScrollInnerS','twrapS');
     return;
   }
