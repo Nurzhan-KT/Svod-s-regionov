@@ -1215,6 +1215,8 @@ function showApp(){
 
   const isAdmin=user.role==='admin'||isHQ();
   const isDRTRTransport=user.region==='ДРТР'&&user.role==='transport';
+  const isStioupTransport=user.region==='СТиОУП'&&user.role==='transport';
+  const isDeptTransport=isDRTRTransport||isStioupTransport;
   const isDRB=!user.branch||user.branch==='ДРБ';
   // Гео-регионы ДРБ (новые имена) — без ДРТР/СТиОУП
   const GEO=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона'];
@@ -1224,7 +1226,8 @@ function showApp(){
     const sel=document.getElementById(selId);
     sel.innerHTML='<option value="">— Выберите регион —</option>';
     if(isDRB){
-      [...RT].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+      // только 6 ЦРУ-регионов; ДРТР и СТиОУП — в цехе
+      GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
       KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='Сеть'){
@@ -1247,10 +1250,14 @@ function showApp(){
   })();
 
   // Личный авто: регион
-  if(isAdmin||isDRTRTransport){
-    document.getElementById('tReg').style.display='';
-    document.getElementById('tRegStatic').style.display='none';
-    if(!isDRTRTransport&&GEO.includes(user.region)){
+  if(isAdmin||isDeptTransport){
+    document.getElementById('tReg').style.display=isDeptTransport?'none':'';
+    document.getElementById('tReg').removeAttribute(isDeptTransport?'required':'');
+    document.getElementById('tRegStatic').style.display=isDeptTransport?'':'none';
+    if(isDeptTransport){
+      document.getElementById('tRegStatic').textContent='ДРТР';
+      document.getElementById('tReg').value='ДРТР';
+    } else if(GEO.includes(user.region)){
       document.getElementById('tReg').value=user.region;
     }
     fillTCities();
@@ -1264,10 +1271,14 @@ function showApp(){
   }
 
   // Служебный авто: регион
-  if(isAdmin||isDRTRTransport){
-    document.getElementById('sReg').style.display='';
-    document.getElementById('sRegStatic').style.display='none';
-    if(!isDRTRTransport&&GEO.includes(user.region)){
+  if(isAdmin||isDeptTransport){
+    document.getElementById('sReg').style.display=isDeptTransport?'none':'';
+    document.getElementById('sReg').removeAttribute(isDeptTransport?'required':'');
+    document.getElementById('sRegStatic').style.display=isDeptTransport?'':'none';
+    if(isDeptTransport){
+      document.getElementById('sRegStatic').textContent='ДРТР';
+      document.getElementById('sReg').value='ДРТР';
+    } else if(GEO.includes(user.region)){
       document.getElementById('sReg').value=user.region;
     }
     fillSCities();
@@ -1472,15 +1483,17 @@ function buildCitySelect(sel, region, isAdmin, depts){
 
 function fillTCities(){
   const isDRTRUser=user?.region==='ДРТР'&&user?.role==='transport';
+  const isStioupUser=user?.region==='СТиОУП'&&user?.role==='transport';
   const isAdmin=user?.role==='admin';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
   const reg=document.getElementById('tReg').value;
   const citySelect=document.getElementById('tCity');
   const cityStatic=document.getElementById('tCityStatic');
 
-  if(isDRTRUser){
+  if(isDRTRUser||isStioupUser){
+    const dept=isDRTRUser?'ДРТР':'СТиОУП';
     citySelect.style.display='none'; citySelect.removeAttribute('required');
-    cityStatic.style.display=''; cityStatic.textContent='ДРТР';
+    cityStatic.style.display=''; cityStatic.textContent=dept;
     document.getElementById('tCityLabel').textContent='Цех';
     document.getElementById('tLocationWrap').style.display='flex';
     return;
@@ -1502,15 +1515,17 @@ function fillTCities(){
 
 function fillSCities(){
   const isDRTRUser=user?.region==='ДРТР'&&user?.role==='transport';
+  const isStioupUser=user?.region==='СТиОУП'&&user?.role==='transport';
   const isAdmin=user?.role==='admin';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
   const reg=document.getElementById('sReg').value;
   const citySelect=document.getElementById('sCity');
   const cityStatic=document.getElementById('sCityStatic');
 
-  if(isDRTRUser){
+  if(isDRTRUser||isStioupUser){
+    const dept=isDRTRUser?'ДРТР':'СТиОУП';
     citySelect.style.display='none'; citySelect.removeAttribute('required');
-    cityStatic.style.display=''; cityStatic.textContent='ДРТР';
+    cityStatic.style.display=''; cityStatic.textContent=dept;
     document.getElementById('sCityLabel').textContent='Цех';
     document.getElementById('sLocationWrap').style.display='flex';
     return;
