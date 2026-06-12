@@ -1941,9 +1941,12 @@ function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId){
   } else {
     rows=data.filter(r=>{
       if(recBranch(r)!==userBranch)return false;
-      // для ДРТР/СТиОУП пользователей: совпадение по region ИЛИ city
-      if(DEPT_REGIONS.has(user.region)) return matchesDept(r, user.region);
-      return recRegNorm(r)===user.region||r.region===user.region;
+      if(DEPT_REGIONS.has(user.region)){
+        // ДРТР/СТиОУП видят только записи где цех = их подразделение
+        return r.city===user.region||(r.region===user.region&&!DEPT_REGIONS.has(r.city));
+      }
+      // ЦРУ-регион: только записи своего региона и только НЕ-подразделенческие цеха
+      return (recRegNorm(r)===user.region||r.region===user.region)&&!DEPT_REGIONS.has(r.city);
     });
   }
   if(isHQ()&&vf!=='all'){
