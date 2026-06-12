@@ -471,7 +471,7 @@ th.col-frozen{position:sticky;z-index:3}
             <option value="active">Действующий состав</option>
             <option id="optDismissedT" value="dismissed">Уволенные</option>
             <option id="optTransferredT" value="transferred">Переведенные</option>
-            <option value="changes">Изменения</option>
+            <option id="optChangesT" value="changes">Изменения</option>
           </select>
           <select id="periodMonthT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
             <option value="all">Все месяцы</option>
@@ -708,7 +708,7 @@ th.col-frozen{position:sticky;z-index:3}
             <option value="active">Действующий состав</option>
             <option id="optDismissedS" value="dismissed">Уволенные</option>
             <option id="optTransferredS" value="transferred">Переведенные</option>
-            <option value="changes">Изменения</option>
+            <option id="optChangesS" value="changes">Изменения</option>
           </select>
           <select id="periodMonthS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
             <option value="all">Все месяцы</option>
@@ -1333,17 +1333,14 @@ function showApp(){
   if(statusCheckWrap) statusCheckWrap.style.display=isDRB?'':'none';
   const sStatusCheckWrap=document.getElementById('sStatusCheckWrap');
   if(sStatusCheckWrap) sStatusCheckWrap.style.display=isDRB?'':'none';
-  // Показать фильтр статуса в сводной (для всех; ДРБ-опции скрыть для других филиалов)
+  // Показать фильтр статуса в сводной (все роли видят Все/Действующий/Уволен/Переведён; Изменения — только admin)
   const sfT=document.getElementById('statusFilterT');
-  if(sfT){
-    sfT.style.display='';
-    ['optDismissedT','optTransferredT'].forEach(id=>{const o=document.getElementById(id);if(o)o.style.display=isDRB?'':'none';});
-  }
+  if(sfT) sfT.style.display='';
   const sfS=document.getElementById('statusFilterS');
-  if(sfS){
-    sfS.style.display='';
-    ['optDismissedS','optTransferredS'].forEach(id=>{const o=document.getElementById(id);if(o)o.style.display=isDRB?'':'none';});
-  }
+  if(sfS) sfS.style.display='';
+  const showChangesOpt=user.role==='admin';
+  ['optChangesT','optChangesS'].forEach(id=>{const o=document.getElementById(id);if(o)o.style.display=showChangesOpt?'':'none';});
+  // ДРБ-специфичные опции (Уволенные, Переведенные) — для всех филиалов оставляем видимыми
 
   renderTariffGrid();
   renderTariffGridS();
