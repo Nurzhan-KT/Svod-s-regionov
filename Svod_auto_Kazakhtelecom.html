@@ -174,7 +174,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .drb-table tfoot td{background:#e8f0fe;font-weight:700;border-top:2px solid var(--navy)}
 
 /* TOP SCROLL BAR */
-.top-scroll-wrap{overflow-x:auto;height:16px;margin-bottom:4px;border-radius:4px;position:sticky;top:110px;z-index:95;background:#f0f4f8}
+.top-scroll-wrap{overflow-x:auto;height:16px;margin-bottom:4px;border-radius:4px;background:#f0f4f8}
 .top-scroll-wrap::-webkit-scrollbar{height:8px}
 .top-scroll-wrap::-webkit-scrollbar-track{background:#eef2f7;border-radius:4px}
 .top-scroll-wrap::-webkit-scrollbar-thumb{background:#aab4c4;border-radius:4px}
@@ -1723,16 +1723,6 @@ function initTopScroll(wrapId,innerId,tableId){
   inner.style.width=tbl.scrollWidth+'px';
   wrap.onscroll=()=>{tbl.scrollLeft=wrap.scrollLeft;};
   tbl.onscroll=()=>{wrap.scrollLeft=tbl.scrollLeft;};
-  // set sticky top dynamically based on card header height
-  const card=wrap.closest('.card-sticky-hd');
-  if(card){
-    const hd=card.querySelector('.cardhd');
-    if(hd){
-      const setTop=()=>{wrap.style.top=(58+hd.offsetHeight)+'px';};
-      setTop();
-      window.addEventListener('resize',setTop,{passive:true});
-    }
-  }
 }
 function getChangesRows(col){
   const b=user?.branch||'ДРБ';
@@ -2666,14 +2656,15 @@ function exportDrbS(){
   toast('📥 Файл сохранён','ok');
 }
 
-// ── FLOATING STICKY THEAD ──
+// ── FLOATING STICKY THEAD + SCROLLBAR ──
 const _stickyHeads={};
 function initStickyHead(wrapId,cardId){
   // cleanup old floater
   if(_stickyHeads[wrapId]){
-    _stickyHeads[wrapId].floater.remove();
-    window.removeEventListener('scroll',_stickyHeads[wrapId].onScroll);
-    window.removeEventListener('resize',_stickyHeads[wrapId].onResize);
+    const old=_stickyHeads[wrapId];
+    old.floater.remove();
+    window.removeEventListener('scroll',old.onScroll);
+    window.removeEventListener('resize',old.onResize);
     delete _stickyHeads[wrapId];
   }
   const wrap=document.getElementById(wrapId);
@@ -2684,15 +2675,40 @@ function initStickyHead(wrapId,cardId){
   const thead=table.querySelector('thead');
   if(!thead)return;
 
-  // create floater
+  // outer floater container
   const floater=document.createElement('div');
-  floater.style.cssText='position:fixed;z-index:150;overflow:hidden;display:none;pointer-events:none;';
+  floater.style.cssText='position:fixed;z-index:150;display:none;flex-direction:column;box-shadow:0 3px 10px rgba(0,30,80,.2);';
+
+  // ── scrollbar strip ──
+  const scrollBar=document.createElement('div');
+  scrollBar.style.cssText='overflow-x:auto;overflow-y:hidden;height:14px;background:#e8edf4;cursor:pointer;';
+  scrollBar.style.setProperty('scrollbar-width','thin');
+  const scrollInner=document.createElement('div');
+  scrollInner.style.cssText='height:1px;';
+  scrollBar.appendChild(scrollInner);
+
+  // ── thead clone ──
   const ft=document.createElement('table');
   ft.className=table.className;
-  ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;';
+  ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;pointer-events:none;';
   ft.appendChild(thead.cloneNode(true));
+
+  floater.appendChild(scrollBar);
   floater.appendChild(ft);
   document.body.appendChild(floater);
+
+  // sync scrolls
+  let _syncing=false;
+  scrollBar.addEventListener('scroll',()=>{
+    if(_syncing)return;_syncing=true;
+    wrap.scrollLeft=scrollBar.scrollLeft;
+    _syncing=false;
+  });
+  wrap.addEventListener('scroll',()=>{
+    if(_syncing)return;_syncing=true;
+    scrollBar.scrollLeft=wrap.scrollLeft;
+    _syncing=false;
+  },{passive:true});
 
   function syncAndShow(){
     const wrapRect=wrap.getBoundingClientRect();
@@ -2700,27 +2716,27 @@ function initStickyHead(wrapId,cardId){
     const cardHd=card.querySelector('.cardhd');
     const stickyTop=cardHd?cardHd.getBoundingClientRect().bottom:58;
 
-    if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+30){
-      // sync column widths from original
+    if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+40){
       const origThs=[...thead.querySelectorAll('tr:first-child th')];
       const cloneThs=[...ft.querySelectorAll('tr:first-child th')];
       origThs.forEach((th,i)=>{
         if(cloneThs[i]){cloneThs[i].style.minWidth=th.offsetWidth+'px';cloneThs[i].style.maxWidth=th.offsetWidth+'px';}
       });
-      floater.style.display='block';
+      const tblW=table.offsetWidth;
+      ft.style.width=tblW+'px';
+      scrollInner.style.width=tblW+'px';
+      floater.style.display='flex';
       floater.style.top=stickyTop+'px';
       floater.style.left=wrapRect.left+'px';
       floater.style.width=wrapRect.width+'px';
-      ft.style.width=table.offsetWidth+'px';
-      floater.scrollLeft=wrap.scrollLeft;
+      scrollBar.scrollLeft=wrap.scrollLeft;
     } else {
       floater.style.display='none';
     }
   }
 
-  const onScroll=()=>{syncAndShow();floater.scrollLeft=wrap.scrollLeft;};
+  const onScroll=()=>syncAndShow();
   const onResize=()=>syncAndShow();
-  wrap.addEventListener('scroll',onScroll,{passive:true});
   window.addEventListener('scroll',onScroll,{passive:true});
   window.addEventListener('resize',onResize,{passive:true});
   _stickyHeads[wrapId]={floater,onScroll,onResize};
