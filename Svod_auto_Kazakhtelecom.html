@@ -1572,7 +1572,8 @@ function submitT(e){
   if(isDRTRUser) city='ДРТР';
   else if(!isDRBBranch) city=region;
   else city=document.getElementById('tCity').value;
-  if(city==='ДРТР'||city==='СТиОУП') region=city;
+  // НЕ перезаписываем region — он остаётся выбранным ЦРУ-регионом
+  // city=ДРТР/СТиОУП уже несёт информацию о подразделении
   if(!region){toast('Выберите регион','err');return}
   if(!city){toast('Выберите цех','err');return}
   const rec={
@@ -2028,7 +2029,7 @@ function submitS(e){
   if(isDRTRUser) city='ДРТР';
   else if(!isDRBBranchS) city=region;
   else city=document.getElementById('sCity').value;
-  if(city==='ДРТР') region='ДРТР';
+  // НЕ перезаписываем region — он остаётся выбранным ЦРУ-регионом
   if(!region){toast('Выберите регион','err');return}
   if(!city){toast('Выберите цех','err');return}
   const rec={
