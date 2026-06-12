@@ -2291,9 +2291,14 @@ function renderStatus(){
   const tRows=filterByBranchAndPeriod(tData,'stMonthT','stYearT');
   const sRows=filterByBranchAndPeriod(sData,'stMonthS','stYearS');
   const iRows=filterByBranchAndPeriod(iData,'stMonthI','stYearI');
-  // Для статусной панели нормализуем имена регионов
-  const tRowsNorm=tRows.map(r=>({...r,region:recRegNorm(r)}));
-  const sRowsNorm=sRows.map(r=>({...r,region:recRegNorm(r)}));
+  // Для статусной панели нормализуем имена регионов;
+  // если city = ДРТР/СТиОУП — учитывать запись в этом подразделении
+  function normRegForStatus(r){
+    if(DEPT_REGIONS.has(r.city)) return r.city;
+    return recRegNorm(r);
+  }
+  const tRowsNorm=tRows.map(r=>({...r,region:normRegForStatus(r)}));
+  const sRowsNorm=sRows.map(r=>({...r,region:normRegForStatus(r)}));
   renderStatusPanel('stT',tRegions,tRowsNorm,true,LIMITS);
   renderStatusPanel('stS',sRegions,sRowsNorm,true,LIMITS_S);
   renderStatusPanel('stI',iRegions,iRows,false,null);
