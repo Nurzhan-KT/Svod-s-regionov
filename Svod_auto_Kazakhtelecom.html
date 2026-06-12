@@ -894,8 +894,13 @@ th.col-frozen{position:sticky;z-index:3}
       <div class="ff"><label>Год *</label>
         <select id="eTYear"><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select>
       </div>
-      <div class="ff"><label>Регион *</label><input id="eTRegion" placeholder="Регион"/></div>
-      <div class="ff"><label>Город / Цех *</label><input id="eTCity" placeholder="Город или цех"/></div>
+      <div class="ff"><label>Регион *</label>
+        <select id="eTRegion" onchange="fillEditTCities()"><option value="">— Выберите регион —</option></select>
+      </div>
+      <div class="ff"><label id="eTCityLabel">Город / Цех *</label>
+        <select id="eTCity"><option value="">— Сначала выберите регион —</option></select>
+        <div id="eTCityStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
+      </div>
       <div class="ff"><label>ФИО водителя *</label><input id="eTFio" placeholder="Фамилия Имя Отчество"/></div>
       <div class="ff"><label>Табельный номер *</label><input id="eTTab" placeholder="00000"/></div>
       <div class="ff"><label>Должность *</label>
@@ -936,8 +941,13 @@ th.col-frozen{position:sticky;z-index:3}
       <div class="ff"><label>Год *</label>
         <select id="eSYear"><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option></select>
       </div>
-      <div class="ff"><label>Регион *</label><input id="eSRegion" placeholder="Регион"/></div>
-      <div class="ff"><label>Город / Цех *</label><input id="eSCity" placeholder="Город или цех"/></div>
+      <div class="ff"><label>Регион *</label>
+        <select id="eSRegion" onchange="fillEditSCities()"><option value="">— Выберите регион —</option></select>
+      </div>
+      <div class="ff"><label id="eSCityLabel">Город / Цех *</label>
+        <select id="eSCity"><option value="">— Сначала выберите регион —</option></select>
+        <div id="eSCityStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
+      </div>
       <div class="ff"><label>ФИО водителя *</label><input id="eSFio" placeholder="Фамилия Имя Отчество"/></div>
       <div class="ff"><label>Табельный номер *</label><input id="eSTab" placeholder="00000"/></div>
       <div class="ff"><label>Должность *</label>
@@ -1611,13 +1621,75 @@ function delT(id){
     toast('Запись удалена','info');
   }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
+function populateEditRegSelect(selId){
+  const sel=document.getElementById(selId);
+  sel.innerHTML='<option value="">— Выберите регион —</option>';
+  const isDRB=!user?.branch||user?.branch==='ДРБ';
+  if(isDRB){
+    DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+    const grp=document.createElement('optgroup');grp.label='Подразделения';
+    ['ДРТР','СТиОУП'].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;grp.appendChild(o);});
+    sel.appendChild(grp);
+  } else if(user?.branch==='ДКБ'||user?.branch==='ДУП'){
+    KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+  } else if(user?.branch==='Сеть'){
+    SET_REGIONS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+  }
+}
+
+function fillEditTCities(){
+  const reg=document.getElementById('eTRegion').value;
+  const citySelect=document.getElementById('eTCity');
+  const cityStatic=document.getElementById('eTCityStatic');
+  const isDRB=!user?.branch||user?.branch==='ДРБ';
+  const isAdmin=user?.role==='admin'||isHQ();
+  if(!isDRB){
+    citySelect.style.display='none'; cityStatic.style.display=''; cityStatic.textContent=reg||'—';
+    document.getElementById('eTCityLabel').textContent='Подразделение';
+  } else if(reg==='ДРТР'||reg==='СТиОУП'){
+    citySelect.style.display='none'; cityStatic.style.display=''; cityStatic.textContent=reg;
+    document.getElementById('eTCityLabel').textContent='Цех';
+  } else {
+    citySelect.style.display=''; cityStatic.style.display='none';
+    document.getElementById('eTCityLabel').textContent='Город / Цех *';
+    buildCitySelect(citySelect, reg, isAdmin, null);
+  }
+}
+
+function fillEditSCities(){
+  const reg=document.getElementById('eSRegion').value;
+  const citySelect=document.getElementById('eSCity');
+  const cityStatic=document.getElementById('eSCityStatic');
+  const isDRB=!user?.branch||user?.branch==='ДРБ';
+  const isAdmin=user?.role==='admin'||isHQ();
+  if(!isDRB){
+    citySelect.style.display='none'; cityStatic.style.display=''; cityStatic.textContent=reg||'—';
+    document.getElementById('eSCityLabel').textContent='Подразделение';
+  } else if(reg==='ДРТР'||reg==='СТиОУП'){
+    citySelect.style.display='none'; cityStatic.style.display=''; cityStatic.textContent=reg;
+    document.getElementById('eSCityLabel').textContent='Цех';
+  } else {
+    citySelect.style.display=''; cityStatic.style.display='none';
+    document.getElementById('eSCityLabel').textContent='Город / Цех *';
+    buildCitySelect(citySelect, reg, isAdmin, null);
+  }
+}
+
 function editT(id){
   const r=tData.find(x=>x.id===id);if(!r)return;
   document.getElementById('editIdT').value=id;
   document.getElementById('eTMonth').value=r.month;
   document.getElementById('eTYear').value=r.year;
-  document.getElementById('eTRegion').value=dispReg(r.region)||'';
-  document.getElementById('eTCity').value=r.city||'';
+  // заполнить регион
+  populateEditRegSelect('eTRegion');
+  const recReg=DRB_REG_MAP[r.region]||r.region||'';
+  document.getElementById('eTRegion').value=recReg;
+  fillEditTCities();
+  // установить город после заполнения select
+  setTimeout(()=>{
+    const cs=document.getElementById('eTCity');
+    if(cs.style.display!=='none') cs.value=r.city||'';
+  },0);
   document.getElementById('eTFio').value=r.fio||'';
   document.getElementById('eTTab').value=r.tab||'';
   document.getElementById('eTPos').value=r.pos||'';
@@ -1639,8 +1711,8 @@ function saveEditT(){
   const upd={
     month:document.getElementById('eTMonth').value,
     year:document.getElementById('eTYear').value,
-    region:document.getElementById('eTRegion').value.trim(),
-    city:document.getElementById('eTCity').value.trim(),
+    region:document.getElementById('eTRegion').value,
+    city:(document.getElementById('eTCityStatic').style.display!=='none'?document.getElementById('eTCityStatic').textContent:document.getElementById('eTCity').value)||'',
     fio:document.getElementById('eTFio').value.trim(),
     tab:document.getElementById('eTTab').value.trim(),
     pos:document.getElementById('eTPos').value,
@@ -1672,8 +1744,13 @@ function editS(id){
   document.getElementById('editIdS').value=id;
   document.getElementById('eSMonth').value=r.month;
   document.getElementById('eSYear').value=r.year;
+  populateEditRegSelect('eSRegion');
   document.getElementById('eSRegion').value=r.region||'';
-  document.getElementById('eSCity').value=r.city||'';
+  fillEditSCities();
+  setTimeout(()=>{
+    const cs=document.getElementById('eSCity');
+    if(cs.style.display!=='none') cs.value=r.city||'';
+  },0);
   document.getElementById('eSFio').value=r.fio||'';
   document.getElementById('eSTab').value=r.tab||'';
   document.getElementById('eSPos').value=r.pos||'';
@@ -1696,8 +1773,8 @@ function saveEditS(){
   const upd={
     month:document.getElementById('eSMonth').value,
     year:document.getElementById('eSYear').value,
-    region:document.getElementById('eSRegion').value.trim(),
-    city:document.getElementById('eSCity').value.trim(),
+    region:document.getElementById('eSRegion').value,
+    city:(document.getElementById('eSCityStatic').style.display!=='none'?document.getElementById('eSCityStatic').textContent:document.getElementById('eSCity').value)||'',
     fio:document.getElementById('eSFio').value.trim(),
     tab:document.getElementById('eSTab').value.trim(),
     pos:document.getElementById('eSPos').value,
