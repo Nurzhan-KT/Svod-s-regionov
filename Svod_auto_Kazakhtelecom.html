@@ -37,6 +37,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 /* HEADER */
 .hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--blue2) 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 26px;height:58px;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,30,80,.3)}
+.hcenter{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.hbranch{font-size:15px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.hbranch-sub{font-size:10px;opacity:.65;letter-spacing:.5px;text-transform:uppercase;margin-top:1px}
 .hl{display:flex;align-items:center;gap:13px}
 .hicon{width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;letter-spacing:-1px}
 .hco{font-size:15px;font-weight:700}.hsub{font-size:11px;opacity:.75}
@@ -241,6 +244,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
   <div class="hl">
     <div class="hicon">КТ</div>
     <div><div class="hco">АО «Казахтелеком»</div><div class="hsub">Свод по автотранспорту</div></div>
+  </div>
+  <div class="hcenter">
+    <div class="hbranch" id="hBranch"></div>
+    <div class="hbranch-sub" id="hBranchSub">Филиал</div>
   </div>
   <div class="hr">
     <span id="hqBadge" class="hq-badge" style="display:none">⭐ РИПС</span>
@@ -1167,8 +1174,12 @@ function showApp(){
   document.getElementById('mainContent').style.display='block';
   document.getElementById('hName').textContent=user.fio;
   const branchLabels={'ДРБ':'ДРБ','ДКБ':'ДКБ','Сеть':'Сеть','ДУП':'ДУП'};
+  const branchFull={'ДРБ':'Дирекция региональных продаж и бизнеса','ДКБ':'Дирекция корпоративного бизнеса','Сеть':'Объединение «Дивизион «Сеть»','ДУП':'Дочерние и учреждённые предприятия'};
   const regLabel=user.region==='HQ'?'РИПС':user.region;
   document.getElementById('hRegion').textContent=(user.branch?branchLabels[user.branch]+' · ':'')+regLabel;
+  const bEl=document.getElementById('hBranch');
+  if(bEl){bEl.textContent=user.branch?branchFull[user.branch]||user.branch:'';}
+  document.getElementById('hBranchSub').style.display=user.branch?'':'none';
   document.getElementById('hqBadge').style.display=isHQ()?'inline-block':'none';
 
   // Кнопки Тарифы — только Администратор
