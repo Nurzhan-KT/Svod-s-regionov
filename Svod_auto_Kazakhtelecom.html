@@ -1084,10 +1084,11 @@ const DRB_REG_MAP={'Центр':'ЦРУ Центрального региона'
 const DRB_REG_MAP_REV=Object.fromEntries(Object.entries(DRB_REG_MAP).map(([k,v])=>[v,k]));
 function dispReg(r){return DRB_REG_MAP[r]||r;}
 // Регионы ДРБ (новые имена)
-const DRB_REGIONS_NEW=['ЦРУ Восточного региона','ЦРУ Северного региона','ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ДРТР'];
-const RT=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона','ДРТР','СТиОУП'];
-const RS=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона','ДРТР'];
-const RI=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона','СТиОУП'];
+const DRB_GEO=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона'];
+const DRB_REGIONS_NEW=[...DRB_GEO,'ДРТР'];
+const RT=[...DRB_GEO,'ДРТР','СТиОУП'];
+const RS=[...DRB_GEO,'ДРТР'];
+const RI=[...DRB_GEO,'СТиОУП'];
 // Лимиты личного автотранспорта (ДРБ)
 const LIMITS={'ЦРУ Западного региона':38,'ЦРУ Северного региона':20,'ЦРУ Восточного региона':31,'ЦРУ Центрального региона':86,'ЦРУ Алматинского региона':62,'ЦРУ Южного региона':27,'ДРТР':15,'СТиОУП':1,'Запад':38,'Север':20,'Восток':31,'Центр':86,'Алматы':62,'Юг':27};
 // Лимиты служебного автотранспорта (ДРБ)
@@ -1218,8 +1219,8 @@ function showApp(){
   const isStioupTransport=user.region==='СТиОУП'&&user.role==='transport';
   const isDeptTransport=isDRTRTransport||isStioupTransport;
   const isDRB=!user.branch||user.branch==='ДРБ';
-  // Гео-регионы ДРБ (новые имена) — без ДРТР/СТиОУП
-  const GEO=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона'];
+  // Гео-регионы ДРБ (новые имена) — без ДРТР/СТиОУП (используем глобальный DRB_GEO)
+  const GEO=DRB_GEO;
 
   // Заполнить select регионов для форм в зависимости от филиала
   function populateRegSelect(selId){
@@ -1227,7 +1228,7 @@ function showApp(){
     sel.innerHTML='<option value="">— Выберите регион —</option>';
     if(isDRB){
       // только 6 ЦРУ-регионов; ДРТР и СТиОУП — в цехе
-      GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+      DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
       KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='Сеть'){
@@ -1721,7 +1722,7 @@ function clearTForm(){
   document.getElementById('tLocation').value='';
   const el=document.getElementById('tDismissed');if(el)el.checked=false;
   const el2=document.getElementById('tTransferred');if(el2)el2.checked=false;
-  if(RT.includes(user?.region)){document.getElementById('tReg').value=user.region;fillTCities()}
+  if(DRB_GEO.includes(user?.region)){document.getElementById('tReg').value=user.region;fillTCities()}
   const now=new Date(),y=now.getFullYear().toString();
   document.getElementById('tMonth').value=now.getMonth()+1;
   const yEl=document.getElementById('tYear');
@@ -1973,7 +1974,7 @@ function clearSForm(){
   document.getElementById('sLocation').value='';
   const sd=document.getElementById('sDismissed');if(sd)sd.checked=false;
   const st=document.getElementById('sTransferred');if(st)st.checked=false;
-  if(RS.includes(user?.region)){document.getElementById('sReg').value=user.region;fillSCities()}
+  if(DRB_GEO.includes(user?.region)){document.getElementById('sReg').value=user.region;fillSCities()}
   const now=new Date(),y=now.getFullYear().toString();
   document.getElementById('sMonth').value=now.getMonth()+1;
   const yEl=document.getElementById('sYear');
