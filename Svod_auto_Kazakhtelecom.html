@@ -128,7 +128,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .twrap{overflow-x:auto;border-radius:var(--r2)}
 table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .dt thead{background:var(--navy);color:#fff}
-.dt thead th{padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px}
+.dt thead th{padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px;position:sticky;top:110px;z-index:90}
 .dt thead th.col-payout{background:#92400E}
 .dt tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 .dt tbody tr:hover{background:var(--pale)}
@@ -1804,6 +1804,7 @@ function renderT(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollT','topScrollInnerT','twrapT');
+  requestAnimationFrame(updateTheadTop);
 }
 
 // ── VIEW FILTER ──
@@ -2018,6 +2019,7 @@ function renderS(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollS','topScrollInnerS','twrapS');
+  requestAnimationFrame(updateTheadTop);
 }
 
 function exportS(){
@@ -2653,6 +2655,22 @@ function exportDrbS(){
   closeDrbSExportModal();
   toast('📥 Файл сохранён','ok');
 }
+
+// ── STICKY THEAD TOP UPDATER ──
+function updateTheadTop(){
+  const HDR=58;
+  [['cardSumT','twrapT'],['cardSumS','twrapS']].forEach(([cardId,wrapId])=>{
+    const card=document.getElementById(cardId);
+    const wrap=document.getElementById(wrapId);
+    if(!card||!wrap)return;
+    const hd=card.querySelector('.cardhd');
+    if(!hd)return;
+    const hdH=hd.getBoundingClientRect().height||52;
+    const top=HDR+hdH;
+    wrap.querySelectorAll('thead th').forEach(th=>{th.style.top=top+'px';});
+  });
+}
+window.addEventListener('resize',updateTheadTop);
 
 // Working days hint listeners
 ['tMonth','tYear'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateWdHint));
