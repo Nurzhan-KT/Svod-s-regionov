@@ -1252,15 +1252,10 @@ function showApp(){
 
   // Личный авто: регион
   if(isAdmin||isDeptTransport){
-    document.getElementById('tReg').style.display=isDeptTransport?'none':'';
-    document.getElementById('tReg').removeAttribute(isDeptTransport?'required':'');
-    document.getElementById('tRegStatic').style.display=isDeptTransport?'':'none';
-    if(isDeptTransport){
-      document.getElementById('tRegStatic').textContent='ДРТР';
-      document.getElementById('tReg').value='ДРТР';
-    } else if(GEO.includes(user.region)){
-      document.getElementById('tReg').value=user.region;
-    }
+    // ДРТР/СТиОУП транспорт: регион выбираемый (6 ЦРУ), цех фиксирован в fillTCities
+    document.getElementById('tReg').style.display='';
+    document.getElementById('tRegStatic').style.display='none';
+    if(GEO.includes(user.region)) document.getElementById('tReg').value=user.region;
     fillTCities();
   } else {
     document.getElementById('tReg').style.display='none';
@@ -1273,15 +1268,9 @@ function showApp(){
 
   // Служебный авто: регион
   if(isAdmin||isDeptTransport){
-    document.getElementById('sReg').style.display=isDeptTransport?'none':'';
-    document.getElementById('sReg').removeAttribute(isDeptTransport?'required':'');
-    document.getElementById('sRegStatic').style.display=isDeptTransport?'':'none';
-    if(isDeptTransport){
-      document.getElementById('sRegStatic').textContent='ДРТР';
-      document.getElementById('sReg').value='ДРТР';
-    } else if(GEO.includes(user.region)){
-      document.getElementById('sReg').value=user.region;
-    }
+    document.getElementById('sReg').style.display='';
+    document.getElementById('sRegStatic').style.display='none';
+    if(GEO.includes(user.region)) document.getElementById('sReg').value=user.region;
     fillSCities();
   } else {
     document.getElementById('sReg').style.display='none';
