@@ -1920,6 +1920,14 @@ function getViewFilter(id){
 }
 function recRegNorm(r){return DRB_REG_MAP[r.region]||r.region;}
 function recBranch(r){return r.branch||'ДРБ';}
+// ДРТР/СТиОУП могут быть в region ИЛИ в city
+const DEPT_REGIONS=new Set(['ДРТР','СТиОУП']);
+function matchesDept(r, dept){return r.region===dept||r.city===dept;}
+function recEffectiveRegion(r){
+  // если запись принадлежит подразделению (ДРТР/СТиОУП) — возвращаем это подразделение
+  if(DEPT_REGIONS.has(r.city)) return r.city;
+  return recRegNorm(r);
+}
 function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId){
   const vf=getViewFilter(regionFilterId);
   const pm=document.getElementById(monthId)?.value||'all';
@@ -1928,15 +1936,22 @@ function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId){
   const userBranch=user.branch||'ДРБ';
   let rows;
   if(isHQ()){
-    // РИПС видит все записи ДРБ (включая legacy без branch)
     rows=data.filter(r=>recBranch(r)==='ДРБ');
   } else {
     rows=data.filter(r=>{
       if(recBranch(r)!==userBranch)return false;
+      // для ДРТР/СТиОУП пользователей: совпадение по region ИЛИ city
+      if(DEPT_REGIONS.has(user.region)) return matchesDept(r, user.region);
       return recRegNorm(r)===user.region||r.region===user.region;
     });
   }
-  if(isHQ()&&vf!=='all')rows=rows.filter(r=>recRegNorm(r)===vf||r.region===vf);
+  if(isHQ()&&vf!=='all'){
+    if(DEPT_REGIONS.has(vf)){
+      rows=rows.filter(r=>matchesDept(r, vf));
+    } else {
+      rows=rows.filter(r=>recRegNorm(r)===vf||r.region===vf);
+    }
+  }
   if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
   if(py!=='all')rows=rows.filter(r=>String(r.year)===py);
   if(sf==='active')rows=rows.filter(r=>!r.dismissed&&!r.transferred);
