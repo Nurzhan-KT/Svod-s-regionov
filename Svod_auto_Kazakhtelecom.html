@@ -1804,6 +1804,7 @@ function renderT(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollT','topScrollInnerT','twrapT');
+  requestAnimationFrame(()=>initStickyHead('twrapT','cardSumT'));
 }
 
 // ── VIEW FILTER ──
@@ -2018,6 +2019,7 @@ function renderS(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollS','topScrollInnerS','twrapS');
+  requestAnimationFrame(()=>initStickyHead('twrapS','cardSumS'));
 }
 
 function exportS(){
@@ -2652,6 +2654,66 @@ function exportDrbS(){
   XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_Служебный_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
   closeDrbSExportModal();
   toast('📥 Файл сохранён','ok');
+}
+
+// ── FLOATING STICKY THEAD ──
+const _stickyHeads={};
+function initStickyHead(wrapId,cardId){
+  // cleanup old floater
+  if(_stickyHeads[wrapId]){
+    _stickyHeads[wrapId].floater.remove();
+    window.removeEventListener('scroll',_stickyHeads[wrapId].onScroll);
+    window.removeEventListener('resize',_stickyHeads[wrapId].onResize);
+    delete _stickyHeads[wrapId];
+  }
+  const wrap=document.getElementById(wrapId);
+  const card=document.getElementById(cardId);
+  if(!wrap||!card)return;
+  const table=wrap.querySelector('table.dt');
+  if(!table)return;
+  const thead=table.querySelector('thead');
+  if(!thead)return;
+
+  // create floater
+  const floater=document.createElement('div');
+  floater.style.cssText='position:fixed;z-index:150;overflow:hidden;display:none;pointer-events:none;';
+  const ft=document.createElement('table');
+  ft.className=table.className;
+  ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;';
+  ft.appendChild(thead.cloneNode(true));
+  floater.appendChild(ft);
+  document.body.appendChild(floater);
+
+  function syncAndShow(){
+    const wrapRect=wrap.getBoundingClientRect();
+    const theadRect=thead.getBoundingClientRect();
+    const cardHd=card.querySelector('.cardhd');
+    const stickyTop=cardHd?cardHd.getBoundingClientRect().bottom:58;
+
+    if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+30){
+      // sync column widths from original
+      const origThs=[...thead.querySelectorAll('tr:first-child th')];
+      const cloneThs=[...ft.querySelectorAll('tr:first-child th')];
+      origThs.forEach((th,i)=>{
+        if(cloneThs[i]){cloneThs[i].style.minWidth=th.offsetWidth+'px';cloneThs[i].style.maxWidth=th.offsetWidth+'px';}
+      });
+      floater.style.display='block';
+      floater.style.top=stickyTop+'px';
+      floater.style.left=wrapRect.left+'px';
+      floater.style.width=wrapRect.width+'px';
+      ft.style.width=table.offsetWidth+'px';
+      floater.scrollLeft=wrap.scrollLeft;
+    } else {
+      floater.style.display='none';
+    }
+  }
+
+  const onScroll=()=>{syncAndShow();floater.scrollLeft=wrap.scrollLeft;};
+  const onResize=()=>syncAndShow();
+  wrap.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onResize,{passive:true});
+  _stickyHeads[wrapId]={floater,onScroll,onResize};
 }
 
 // Working days hint listeners
