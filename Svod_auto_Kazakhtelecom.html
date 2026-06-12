@@ -87,6 +87,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 /* CARD */
 .card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
+.card-sticky-hd{overflow:visible}
+.card-sticky-hd>.cardhd{border-radius:var(--r) var(--r) 0 0}
 .cardhd{padding:14px 20px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cardhd-sticky{position:sticky;top:58px;z-index:100;box-shadow:0 3px 10px rgba(0,30,80,.25)}
 .cardhd-l{display:flex;align-items:center;gap:9px}
@@ -450,7 +452,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     </div>
 
     <!-- Summary table -->
-    <div class="card" id="cardSumT">
+    <div class="card card-sticky-hd" id="cardSumT">
       <div class="cardhd cardhd-sticky" onclick="toggleSumT()">
         <div class="cardhd-l">
           <span>📋</span><span>Сводная таблица — Личный автотранспорт</span>
@@ -687,7 +689,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
     </div>
 
     <!-- Summary table -->
-    <div class="card" id="cardSumS">
+    <div class="card card-sticky-hd" id="cardSumS">
       <div class="cardhd cardhd-sticky" onclick="toggleSumS()">
         <div class="cardhd-l">
           <span>📋</span><span>Сводная таблица — Служебный автотранспорт</span>
