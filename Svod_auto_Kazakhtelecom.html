@@ -1174,7 +1174,7 @@ function showApp(){
   document.getElementById('mainContent').style.display='block';
   document.getElementById('hName').textContent=user.fio;
   const branchLabels={'ДРБ':'ДРБ','ДКБ':'ДКБ','Сеть':'Сеть','ДУП':'ДУП'};
-  const branchFull={'ДРБ':'Дирекция региональных продаж и бизнеса','ДКБ':'Дирекция корпоративного бизнеса','Сеть':'Объединение «Дивизион «Сеть»','ДУП':'Дочерние и учреждённые предприятия'};
+  const branchFull={'ДРБ':'Дивизион по розничному бизнесу','ДКБ':'Дивизион по корпоративному бизнесу','Сеть':'Объединение «Дивизион «Сеть»','ДУП':'Дирекция управления проектами'};
   const regLabel=user.region==='HQ'?'РИПС':user.region;
   document.getElementById('hRegion').textContent=(user.branch?branchLabels[user.branch]+' · ':'')+regLabel;
   const bEl=document.getElementById('hBranch');
