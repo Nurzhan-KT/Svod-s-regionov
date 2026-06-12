@@ -174,7 +174,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .drb-table tfoot td{background:#e8f0fe;font-weight:700;border-top:2px solid var(--navy)}
 
 /* TOP SCROLL BAR */
-.top-scroll-wrap{overflow-x:auto;height:14px;margin-bottom:4px;border-radius:4px}
+.top-scroll-wrap{overflow-x:auto;height:16px;margin-bottom:4px;border-radius:4px;position:sticky;top:110px;z-index:95;background:#f0f4f8}
 .top-scroll-wrap::-webkit-scrollbar{height:8px}
 .top-scroll-wrap::-webkit-scrollbar-track{background:#eef2f7;border-radius:4px}
 .top-scroll-wrap::-webkit-scrollbar-thumb{background:#aab4c4;border-radius:4px}
@@ -1723,6 +1723,16 @@ function initTopScroll(wrapId,innerId,tableId){
   inner.style.width=tbl.scrollWidth+'px';
   wrap.onscroll=()=>{tbl.scrollLeft=wrap.scrollLeft;};
   tbl.onscroll=()=>{wrap.scrollLeft=tbl.scrollLeft;};
+  // set sticky top dynamically based on card header height
+  const card=wrap.closest('.card-sticky-hd');
+  if(card){
+    const hd=card.querySelector('.cardhd');
+    if(hd){
+      const setTop=()=>{wrap.style.top=(58+hd.offsetHeight)+'px';};
+      setTop();
+      window.addEventListener('resize',setTop,{passive:true});
+    }
+  }
 }
 function getChangesRows(col){
   const b=user?.branch||'ДРБ';
