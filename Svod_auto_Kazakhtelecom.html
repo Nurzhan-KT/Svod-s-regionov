@@ -2296,11 +2296,7 @@ function onLoginBranchChange(){
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   if(branch==='ДРБ'){
-    const GEO_REG=['ЦРУ Восточного региона','ЦРУ Северного региона','ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона'];
-    GEO_REG.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
-    const grp=document.createElement('optgroup');grp.label='Подразделения';
-    ['ДРТР','СТиОУП'].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;grp.appendChild(o);});
-    regSel.appendChild(grp);
+    DRB_REGIONS_NEW.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
     const hq=document.createElement('option');hq.value='HQ';hq.textContent='РИПС';regSel.appendChild(hq);
   } else if(branch==='ДКБ'||branch==='ДУП'){
     KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
