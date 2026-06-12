@@ -1652,7 +1652,7 @@ function fillEditTCities(){
   } else {
     citySelect.style.display=''; cityStatic.style.display='none';
     document.getElementById('eTCityLabel').textContent='Город / Цех *';
-    buildCitySelect(citySelect, reg, isAdmin, null);
+    buildCitySelect(citySelect, reg, isAdmin, isAdmin?['ДРТР','СТиОУП']:null);
   }
 }
 
@@ -1671,7 +1671,7 @@ function fillEditSCities(){
   } else {
     citySelect.style.display=''; cityStatic.style.display='none';
     document.getElementById('eSCityLabel').textContent='Город / Цех *';
-    buildCitySelect(citySelect, reg, isAdmin, null);
+    buildCitySelect(citySelect, reg, isAdmin, isAdmin?['ДРТР']:null);
   }
 }
 
