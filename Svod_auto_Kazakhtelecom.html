@@ -469,8 +469,8 @@ th.col-frozen{position:sticky;z-index:3}
           <select id="statusFilterT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
             <option value="all">Все</option>
             <option value="active">Действующий состав</option>
-            <option value="dismissed">Уволенные</option>
-            <option value="transferred">Переведенные</option>
+            <option id="optDismissedT" value="dismissed">Уволенные</option>
+            <option id="optTransferredT" value="transferred">Переведенные</option>
             <option value="changes">Изменения</option>
           </select>
           <select id="periodMonthT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
@@ -706,8 +706,8 @@ th.col-frozen{position:sticky;z-index:3}
           <select id="statusFilterS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
             <option value="all">Все</option>
             <option value="active">Действующий состав</option>
-            <option value="dismissed">Уволенные</option>
-            <option value="transferred">Переведенные</option>
+            <option id="optDismissedS" value="dismissed">Уволенные</option>
+            <option id="optTransferredS" value="transferred">Переведенные</option>
             <option value="changes">Изменения</option>
           </select>
           <select id="periodMonthS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
@@ -1333,11 +1333,17 @@ function showApp(){
   if(statusCheckWrap) statusCheckWrap.style.display=isDRB?'':'none';
   const sStatusCheckWrap=document.getElementById('sStatusCheckWrap');
   if(sStatusCheckWrap) sStatusCheckWrap.style.display=isDRB?'':'none';
-  // Показать фильтр статуса в сводной (только ДРБ)
+  // Показать фильтр статуса в сводной (для всех; ДРБ-опции скрыть для других филиалов)
   const sfT=document.getElementById('statusFilterT');
-  if(sfT) sfT.style.display=isDRB?'':'none';
+  if(sfT){
+    sfT.style.display='';
+    ['optDismissedT','optTransferredT'].forEach(id=>{const o=document.getElementById(id);if(o)o.style.display=isDRB?'':'none';});
+  }
   const sfS=document.getElementById('statusFilterS');
-  if(sfS) sfS.style.display=isDRB?'':'none';
+  if(sfS){
+    sfS.style.display='';
+    ['optDismissedS','optTransferredS'].forEach(id=>{const o=document.getElementById(id);if(o)o.style.display=isDRB?'':'none';});
+  }
 
   renderTariffGrid();
   renderTariffGridS();
