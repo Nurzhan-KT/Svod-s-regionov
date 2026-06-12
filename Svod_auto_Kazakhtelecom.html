@@ -1872,16 +1872,25 @@ function exportT(){
   const colW=[4,14,8,18,16,22,28,14,12,30,14,14,12,14,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
   const statusLabel=r=>r.dismissed?'Уволен':r.transferred?'Переведен':'Действующий';
-  const sheet=[headers,...rows.map((r,i)=>{
+  let totalPayout=0;
+  const dataRows=rows.map((r,i)=>{
     const base=[i+1,MONTHS[+r.month],r.year,dispReg(r.region),r.city,r.location||'',r.fio,statusLabel(r),r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
       const effectiveDays=Math.max(0,r.days-(r.tripDays||0));
-      base.push(rate,norm,Math.round(rate/norm*effectiveDays));
+      const pay=Math.round(rate/norm*effectiveDays);
+      totalPayout+=pay;
+      base.push(rate,norm,pay);
     }
     return base;
-  })];
+  });
+  if(showPayout){
+    const totalRow=new Array(headers.length).fill('');
+    totalRow[0]='ИТОГО';totalRow[headers.length-1]=totalPayout;
+    dataRows.push(totalRow);
+  }
+  const sheet=[headers,...dataRows];
   const ws=XLSX.utils.aoa_to_sheet(sheet);
   ws['!cols']=colW.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
@@ -2018,15 +2027,24 @@ function exportS(){
   const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
   const colW=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
-  const sheet=[headers,...rows.map((r,i)=>{
+  let totalPayoutS=0;
+  const dataRowsS=rows.map((r,i)=>{
     const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
     if(showPayout){
       const rate=getRateS(r.pos,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
-      base.push(rate,norm,Math.round(rate/norm*r.days));
+      const pay=Math.round(rate/norm*r.days);
+      totalPayoutS+=pay;
+      base.push(rate,norm,pay);
     }
     return base;
-  })];
+  });
+  if(showPayout){
+    const totalRow=new Array(headers.length).fill('');
+    totalRow[0]='ИТОГО';totalRow[headers.length-1]=totalPayoutS;
+    dataRowsS.push(totalRow);
+  }
+  const sheet=[headers,...dataRowsS];
   const ws=XLSX.utils.aoa_to_sheet(sheet);
   ws['!cols']=colW.map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
