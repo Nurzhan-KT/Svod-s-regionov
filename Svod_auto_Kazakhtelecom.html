@@ -664,6 +664,20 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
       </div>
     </div>
 
+    <!-- DRB Service Compensation Block -->
+    <div class="card" id="cardDrbS" style="display:none">
+      <div class="cardhd" onclick="toggleDrbS()">
+        <div class="cardhd-l"><span>📊</span><span>Информация по компенсации за использование служебного автотранспорта сотрудниками ДРБ</span></div>
+        <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+          <button class="btn btn-green btn-sm" onclick="openDrbSExportModal()">📥 Выгрузка Excel</button>
+          <span class="toggle-chevron" id="chevronDrbS">▼</span>
+        </div>
+      </div>
+      <div class="cardbody" id="drbSBody">
+        <div class="twrap" id="drbSTableWrap"></div>
+      </div>
+    </div>
+
     <!-- Summary table -->
     <div class="card" id="cardSumS">
       <div class="cardhd" onclick="toggleSumS()">
@@ -934,6 +948,46 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
   </div>
 </div>
 
+<!-- DRB Service Export Modal -->
+<div id="drbSExportModal" style="display:none" class="emodal-bg" onclick="if(event.target===this)closeDrbSExportModal()">
+  <div class="emodal">
+    <h3>📥 Выгрузка Excel — Компенсация ДРБ (Служебный)</h3>
+    <p>Выберите период для выгрузки данных</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">С месяца</label>
+        <select id="drbSExpMonthFrom" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+          <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+          <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+          <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">Год</label>
+        <select id="drbSExpYearFrom" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">По месяц</label>
+        <select id="drbSExpMonthTo" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
+          <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
+          <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
+          <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="ff"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px">Год</label>
+        <select id="drbSExpYearTo" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+    </div>
+    <div class="emodal-btns">
+      <button class="btn btn-outline" onclick="closeDrbSExportModal()">Отмена</button>
+      <button class="btn btn-green" onclick="exportDrbS()">📥 Выгрузить</button>
+    </div>
+  </div>
+</div>
+
 <!-- DRB Export Modal -->
 <div id="drbExportModal" style="display:none" class="emodal-bg" onclick="if(event.target===this)closeDrbExportModal()">
   <div class="emodal">
@@ -1061,7 +1115,7 @@ function setupListeners(){
   });
   _unsubS=db.collection('service').onSnapshot(snap=>{
     sData=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(user){renderS();renderStatus();}
+    if(user){renderS();renderDrbS();renderStatus();}
   });
   _unsubI=db.collection('inventory').onSnapshot(snap=>{
     iData=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1074,7 +1128,7 @@ function setupListeners(){
   if(_unsubTariffsS)_unsubTariffsS();
   _unsubTariffsS=db.doc('settings/tariffs_service').onSnapshot(doc=>{
     tariffsS=doc.exists?doc.data():{};
-    if(user){renderTariffGridS();rebuildSHead();renderS();}
+    if(user){renderTariffGridS();rebuildSHead();renderS();renderDrbS();}
   });
 }
 
@@ -1258,7 +1312,7 @@ function showApp(){
   updateExportNotes();
   rebuildTHead();
   rebuildSHead();
-  renderT();renderS();renderI();renderStatus();renderDrb();
+  renderT();renderS();renderI();renderStatus();renderDrb();renderDrbS();
 }
 function updateExportNotes(){
   const note=isHQ()?'Выгрузка: все регионы + расчёт выплат':'Выгрузка: только ваш регион';
@@ -2423,6 +2477,148 @@ function exportDrb(){
   XLSX.utils.book_append_sheet(wb,ws,'Компенсация ДРБ');
   XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
   closeDrbExportModal();
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── DRB SERVICE BLOCK ──
+function toggleDrbS(){
+  const card=document.getElementById('cardDrbS');
+  card.classList.toggle('card-collapsed');
+  document.getElementById('chevronDrbS').textContent=card.classList.contains('card-collapsed')?'▶':'▼';
+}
+
+function calcDrbDataS(periods){
+  const rows=[];
+  for(const reg of DRB_REGIONS){
+    const cols=[];
+    for(const {month,year} of periods){
+      const recs=sData.filter(r=>(DRB_REG_MAP[r.region]||r.region)===reg&&String(r.month)===String(month)&&String(r.year)===String(year));
+      let cnt=0,sum=0,mgtCnt=0,mgtSum=0;
+      for(const r of recs){
+        const rate=getRateS(r.pos,r.ww);
+        const norm=calcWorkDays(r.month,r.year,r.ww)||1;
+        const eff=Math.max(0,(r.days||0)-(r.tripDays||0));
+        const pay=rate?Math.round(rate/norm*eff):0;
+        cnt++;sum+=pay;
+        if(MGT_POS.has(r.pos)){mgtCnt++;mgtSum+=pay;}
+      }
+      cols.push({cnt,sum,mgtCnt,mgtSum});
+    }
+    rows.push({reg,cols});
+  }
+  const totals=periods.map((_,pi)=>({
+    cnt:rows.reduce((a,r)=>a+r.cols[pi].cnt,0),
+    sum:rows.reduce((a,r)=>a+r.cols[pi].sum,0),
+    mgtCnt:rows.reduce((a,r)=>a+r.cols[pi].mgtCnt,0),
+    mgtSum:rows.reduce((a,r)=>a+r.cols[pi].mgtSum,0)
+  }));
+  return{rows,totals};
+}
+
+function renderDrbS(){
+  const block=document.getElementById('cardDrbS');
+  if(!isRipsAdmin()){block.style.display='none';return;}
+  block.style.display='';
+  const wrap=document.getElementById('drbSTableWrap');
+  if(!wrap)return;
+  try{
+    const periods=getLast3Months();
+    const {rows,totals}=calcDrbDataS(periods);
+    const fmt=v=>v?(v/1000).toFixed(1):'—';
+
+    let headMonth='<th rowspan="2" style="min-width:30px">№</th><th rowspan="2">Регион</th>';
+    let headSub='';
+    periods.forEach(({month,year})=>{
+      headMonth+=`<th colspan="4">${MONTHS[month]} ${year}</th>`;
+      headSub+=`<th>кол-во<br>сотрудников</th><th>факт в тыс.<br>тенге</th><th>в т.ч.<br>рук.состав</th><th>факт в тыс.<br>тенге</th>`;
+    });
+
+    let tbody='';
+    rows.forEach((r,i)=>{
+      let cells='';
+      r.cols.forEach(c=>{
+        cells+=`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`;
+      });
+      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
+    });
+
+    let tfoot='<tr><td colspan="2" style="text-align:left;font-weight:700">Итого</td>';
+    totals.forEach(t=>{
+      tfoot+=`<td class="td-num">${t.cnt||'—'}</td><td class="td-sum">${fmt(t.sum)}</td><td class="td-num">${t.mgtCnt||'—'}</td><td class="td-sum">${fmt(t.mgtSum)}</td>`;
+    });
+    tfoot+='</tr>';
+
+    const hasData=rows.some(r=>r.cols.some(c=>c.cnt>0));
+    if(!hasData&&sData.length===0){
+      wrap.innerHTML='<p style="color:var(--muted);padding:16px;font-size:13px">⏳ Загрузка данных...</p>';
+      return;
+    }
+    if(!hasData){
+      wrap.innerHTML='<p style="color:var(--muted);padding:16px;font-size:13px">Нет данных за последние 3 месяца для регионов ДРБ.</p>';
+      return;
+    }
+
+    wrap.innerHTML=`
+      <table class="drb-table">
+        <thead>
+          <tr>${headMonth}</tr>
+          <tr>${headSub}</tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+        <tfoot>${tfoot}</tfoot>
+      </table>`;
+  }catch(e){
+    wrap.innerHTML=`<p style="color:var(--red);padding:16px;font-size:13px">Ошибка рендера: ${e.message}</p>`;
+  }
+}
+
+function openDrbSExportModal(){
+  const m3=getLast3Months();
+  document.getElementById('drbSExpMonthFrom').value=m3[0].month;
+  document.getElementById('drbSExpYearFrom').value=m3[0].year;
+  document.getElementById('drbSExpMonthTo').value=m3[2].month;
+  document.getElementById('drbSExpYearTo').value=m3[2].year;
+  document.getElementById('drbSExportModal').style.display='flex';
+}
+function closeDrbSExportModal(){
+  document.getElementById('drbSExportModal').style.display='none';
+}
+function exportDrbS(){
+  const fromM=document.getElementById('drbSExpMonthFrom').value;
+  const fromY=document.getElementById('drbSExpYearFrom').value;
+  const toM=document.getElementById('drbSExpMonthTo').value;
+  const toY=document.getElementById('drbSExpYearTo').value;
+  const periods=getDrbPeriods(fromM,fromY,toM,toY);
+  if(!periods.length){toast('Неверный период','err');return;}
+  const {rows,totals}=calcDrbDataS(periods);
+  const fmt=v=>v?(v/1000):0;
+
+  const header1=['№','Регион'];
+  const header2=['',''];
+  periods.forEach(({month,year})=>{
+    const lbl=`${MONTHS[month]} ${year}`;
+    header1.push(lbl,'','','');
+    header2.push('кол-во сотрудников','факт в тыс.тенге','в т.ч. рук.состав','факт в тыс.тенге');
+  });
+
+  const dataRows=rows.map((r,i)=>{
+    const row=[i+1,r.reg];
+    r.cols.forEach(c=>{row.push(c.cnt,fmt(c.sum),c.mgtCnt,fmt(c.mgtSum));});
+    return row;
+  });
+  const totalRow=['','Итого'];
+  totals.forEach(t=>{totalRow.push(t.cnt,fmt(t.sum),t.mgtCnt,fmt(t.mgtSum));});
+  dataRows.push(totalRow);
+
+  const ws=XLSX.utils.aoa_to_sheet([header1,header2,...dataRows]);
+  const merges=[];
+  periods.forEach((_,pi)=>{merges.push({s:{r:0,c:2+pi*4},e:{r:0,c:5+pi*4}});});
+  ws['!merges']=merges;
+  ws['!cols']=[{wch:4},{wch:14},...periods.flatMap(()=>[{wch:14},{wch:16},{wch:14},{wch:16}])];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Компенсация ДРБ Служебный');
+  XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_Служебный_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
+  closeDrbSExportModal();
   toast('📥 Файл сохранён','ok');
 }
 
