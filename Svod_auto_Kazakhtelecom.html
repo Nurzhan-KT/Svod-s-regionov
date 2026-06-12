@@ -87,10 +87,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 /* CARD */
 .card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
-.card-sticky-hd{overflow:visible}
-.card-sticky-hd>.cardhd{border-radius:var(--r) var(--r) 0 0}
+.card-sticky-hd{overflow:hidden}
 .cardhd{padding:14px 20px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.cardhd-sticky{position:sticky;top:58px;z-index:100;box-shadow:0 3px 10px rgba(0,30,80,.25)}
+.cardhd-fixed{position:fixed;left:0;right:0;z-index:200;box-shadow:0 3px 12px rgba(0,30,80,.35);border-radius:0}
 .cardhd-l{display:flex;align-items:center;gap:9px}
 .cardbody{padding:20px}
 
@@ -1804,7 +1803,7 @@ function renderT(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollT','topScrollInnerT','twrapT');
-  requestAnimationFrame(()=>initStickyHead('twrapT','cardSumT'));
+  requestAnimationFrame(()=>{initFixedHeader('cardSumT');initStickyHead('twrapT','cardSumT');});
 }
 
 // ── VIEW FILTER ──
@@ -2019,7 +2018,7 @@ function renderS(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollS','topScrollInnerS','twrapS');
-  requestAnimationFrame(()=>initStickyHead('twrapS','cardSumS'));
+  requestAnimationFrame(()=>{initFixedHeader('cardSumS');initStickyHead('twrapS','cardSumS');});
 }
 
 function exportS(){
@@ -2654,6 +2653,49 @@ function exportDrbS(){
   XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_Служебный_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
   closeDrbSExportModal();
   toast('📥 Файл сохранён','ok');
+}
+
+// ── FIXED CARD HEADER ON SCROLL ──
+const _fixedHdrs={};
+const APP_HDR_H=58;
+function initFixedHeader(cardId){
+  if(_fixedHdrs[cardId]){
+    window.removeEventListener('scroll',_fixedHdrs[cardId]);
+    delete _fixedHdrs[cardId];
+  }
+  const card=document.getElementById(cardId);
+  if(!card)return;
+  const hd=card.querySelector('.cardhd');
+  if(!hd)return;
+
+  // placeholder keeps layout stable when hd is taken out of flow
+  let spacer=card.querySelector('.cardhd-spacer');
+  if(!spacer){spacer=document.createElement('div');spacer.className='cardhd-spacer';spacer.style.display='none';card.insertBefore(spacer,hd);}
+
+  function update(){
+    const rect=card.getBoundingClientRect();
+    const hdH=hd.offsetHeight;
+    // card top has scrolled above APP_HDR_H → fix the header
+    if(rect.top<APP_HDR_H && rect.bottom>APP_HDR_H+hdH+20){
+      spacer.style.display='block';
+      spacer.style.height=hdH+'px';
+      hd.classList.add('cardhd-fixed');
+      hd.style.top=APP_HDR_H+'px';
+      hd.style.left=card.getBoundingClientRect().left+'px';
+      hd.style.width=card.offsetWidth+'px';
+    } else {
+      spacer.style.display='none';
+      hd.classList.remove('cardhd-fixed');
+      hd.style.top='';hd.style.left='';hd.style.width='';
+    }
+  }
+
+  const onScroll=()=>update();
+  const onResize=()=>{hd.classList.remove('cardhd-fixed');hd.style.top='';hd.style.left='';hd.style.width='';spacer.style.display='none';requestAnimationFrame(update);};
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onResize,{passive:true});
+  _fixedHdrs[cardId]=onScroll;
+  update();
 }
 
 // ── FLOATING STICKY THEAD + SCROLLBAR ──
