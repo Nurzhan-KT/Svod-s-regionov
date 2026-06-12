@@ -131,6 +131,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .dt thead th.col-payout{background:#92400E}
 .dt tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 .dt tbody tr:hover{background:var(--pale)}
+.dt tbody tr:hover td.col-frozen{background:var(--pale)}
+td.col-frozen{background:#fff;position:sticky;z-index:2}
+th.col-frozen{position:sticky;z-index:3}
+.col-frozen-last{box-shadow:3px 0 8px rgba(0,30,80,.13)}
 .dt tbody td{padding:9px 12px;vertical-align:middle}
 .et{text-align:center;padding:38px;color:var(--muted)}
 .et .ei{font-size:38px;margin-bottom:10px}
@@ -1803,7 +1807,7 @@ function renderT(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollT','topScrollInnerT','twrapT');
-  requestAnimationFrame(()=>{initFixedHeader('cardSumT');initStickyHead('twrapT','cardSumT');});
+  requestAnimationFrame(()=>{initFrozenCols('twrapT',8);initFixedHeader('cardSumT');initStickyHead('twrapT','cardSumT');});
 }
 
 // ── VIEW FILTER ──
@@ -2018,7 +2022,7 @@ function renderS(){
     </tr>`;
   }).join('');
   initTopScroll('topScrollS','topScrollInnerS','twrapS');
-  requestAnimationFrame(()=>{initFixedHeader('cardSumS');initStickyHead('twrapS','cardSumS');});
+  requestAnimationFrame(()=>{initFrozenCols('twrapS',8);initFixedHeader('cardSumS');initStickyHead('twrapS','cardSumS');});
 }
 
 function exportS(){
@@ -2653,6 +2657,36 @@ function exportDrbS(){
   XLSX.writeFile(wb,`КТ_Компенсация_ДРБ_Служебный_${fromM}_${fromY}-${toM}_${toY}.xlsx`);
   closeDrbSExportModal();
   toast('📥 Файл сохранён','ok');
+}
+
+// ── FROZEN COLUMNS ──
+function initFrozenCols(wrapId, frozenCount){
+  const wrap=document.getElementById(wrapId);
+  if(!wrap)return;
+  const table=wrap.querySelector('table.dt');
+  if(!table)return;
+
+  // measure left offsets from thead
+  const ths=[...table.querySelectorAll('thead tr:first-child th')];
+  const lefts=[];
+  let acc=0;
+  for(let i=0;i<frozenCount&&i<ths.length;i++){
+    lefts.push(acc);
+    acc+=ths[i].offsetWidth;
+  }
+
+  // apply to all rows
+  table.querySelectorAll('tr').forEach(tr=>{
+    const cells=[...tr.querySelectorAll('th,td')];
+    cells.forEach((cell,i)=>{
+      if(i<frozenCount){
+        cell.classList.add('col-frozen');
+        cell.style.left=lefts[i]+'px';
+        if(i===frozenCount-1) cell.classList.add('col-frozen-last');
+        else cell.classList.remove('col-frozen-last');
+      }
+    });
+  });
 }
 
 // ── FIXED CARD HEADER ON SCROLL ──
