@@ -934,6 +934,60 @@ th.col-frozen{position:sticky;z-index:3}
   </div>
 </div>
 
+<!-- AUTOFILL MODAL — Личный автотранспорт -->
+<div id="autoFillModal" class="edit-modal-bg" style="display:none" onclick="if(event.target===this)closeAutoFill()">
+  <div class="edit-modal" style="width:min(520px,95vw)">
+    <h3>⚡ Автозаполнение — Личный автотранспорт</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Выберите месяц, из которого нужно скопировать данные сотрудников. Поле «Дней отработано» не заполняется — будет доступно после интеграции с базой учёта рабочего времени.</p>
+    <div class="fgrid">
+      <div class="ff" id="afRegionWrap" style="display:none">
+        <label>Регион</label>
+        <select id="afRegion">
+          <option value="">— Все регионы —</option>
+        </select>
+      </div>
+      <div class="ff">
+        <label>Месяц источник *</label>
+        <select id="afMonth">
+          <option value="1">Январь</option><option value="2">Февраль</option>
+          <option value="3">Март</option><option value="4">Апрель</option>
+          <option value="5">Май</option><option value="6">Июнь</option>
+          <option value="7">Июль</option><option value="8">Август</option>
+          <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+          <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="ff">
+        <label>Год источник *</label>
+        <select id="afYear">
+          <option value="2024">2024</option><option value="2025">2025</option>
+          <option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+    </div>
+    <div id="afPreview" style="margin-top:14px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r2);display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:var(--pale);position:sticky;top:0">
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Таб. №</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">ФИО</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Должность</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Регион</th>
+        </tr></thead>
+        <tbody id="afPreviewBody"></tbody>
+      </table>
+    </div>
+    <div id="afEmpty" style="display:none;padding:16px;text-align:center;color:var(--muted);font-size:13px">Нет данных за выбранный период</div>
+    <div style="margin-top:10px;font-size:12px;color:#92400e;background:#fef3c7;padding:8px 12px;border-radius:var(--r2)">
+      🔗 <b>Дней отработано</b> будет заполняться автоматически после интеграции с базой данных учёта рабочего времени.
+    </div>
+    <div class="edit-modal-btns">
+      <button class="btn btn-outline" onclick="closeAutoFill()">Отмена</button>
+      <button class="btn" style="background:#e8f5e9;color:#1a6b2e;border:1.5px solid #a5d6a7;font-weight:600" onclick="afLoadPreview()">🔍 Показать сотрудников</button>
+      <button class="btn btn-navy" onclick="afApply()">⚡ Заполнить форму</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT MODAL — Служебный автотранспорт -->
 <div id="editModalS" class="edit-modal-bg" style="display:none" onclick="if(event.target===this)closeEditS()">
   <div class="edit-modal">
@@ -1804,20 +1858,131 @@ function saveEditS(){
   }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 function autoFillT(){
-  const tab=document.getElementById('tTab').value.trim();
-  if(!tab){toast('Введите табельный номер для автозаполнения','err');return;}
-  const curMonth=document.getElementById('tMonth').value;
-  const curYear=document.getElementById('tYear').value;
-  const matches=tData.filter(r=>r.tab===tab&&!(String(r.month)===String(curMonth)&&String(r.year)===String(curYear)));
-  if(!matches.length){toast('Данные по этому табельному номеру не найдены','err');return;}
-  matches.sort((a,b)=>(+b.year-+a.year)||((+b.month)-(+a.month)));
-  const prev=matches[0];
-  if(prev.fio)document.getElementById('tFio').value=prev.fio;
-  if(prev.pos)document.getElementById('tPos').value=prev.pos;
-  if(prev.fuel)document.getElementById('tFuel').value=prev.fuel;
-  const wwEl=document.querySelector(`input[name="tWW"][value="${prev.ww}"]`);
-  if(wwEl){wwEl.checked=true;wwEl.dispatchEvent(new Event('change'));}
-  toast('✓ Заполнено из записи за '+MONTHS[+prev.month]+' '+prev.year,'ok');
+  const isAdmin=user?.role==='admin'||isHQ();
+  // Предустановить прошлый месяц
+  const now=new Date();
+  let pm=now.getMonth(); // 0-based → прошлый месяц (1-based = текущий-1)
+  let py=now.getFullYear();
+  if(pm===0){pm=12;py--;}
+  const afM=document.getElementById('afMonth');
+  const afY=document.getElementById('afYear');
+  afM.value=pm;
+  // Установить год если есть такая опция
+  if([...afY.options].some(o=>o.value===String(py)))afY.value=py;
+  // Регион для администратора
+  const regWrap=document.getElementById('afRegionWrap');
+  const regSel=document.getElementById('afRegion');
+  if(isAdmin){
+    regWrap.style.display='';
+    regSel.innerHTML='<option value="">— Все регионы —</option>';
+    DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);regSel.appendChild(o);});
+  } else {
+    regWrap.style.display='none';
+  }
+  // Сбросить превью
+  document.getElementById('afPreview').style.display='none';
+  document.getElementById('afEmpty').style.display='none';
+  document.getElementById('afPreviewBody').innerHTML='';
+  document.getElementById('autoFillModal').style.display='flex';
+}
+function closeAutoFill(){document.getElementById('autoFillModal').style.display='none';}
+function afGetRegion(){
+  const isAdmin=user?.role==='admin'||isHQ();
+  if(isAdmin){
+    const v=document.getElementById('afRegion').value;
+    return v||null; // null = все регионы
+  }
+  return user?.region||null;
+}
+function afGetRecords(){
+  const month=document.getElementById('afMonth').value;
+  const year=document.getElementById('afYear').value;
+  const reg=afGetRegion();
+  const isAdmin=user?.role==='admin'||isHQ();
+  return tData.filter(r=>{
+    if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
+    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    const rReg=r.region;
+    return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
+  });
+}
+function afLoadPreview(){
+  const recs=afGetRecords();
+  const tbody=document.getElementById('afPreviewBody');
+  const preview=document.getElementById('afPreview');
+  const empty=document.getElementById('afEmpty');
+  if(!recs.length){preview.style.display='none';empty.style.display='';return;}
+  // Дедупликация по табельному номеру — берём последнюю запись
+  const byTab=new Map();
+  recs.forEach(r=>{
+    const ex=byTab.get(r.tab);
+    if(!ex||(+r.year>+ex.year||(+r.year===+ex.year&&+r.month>+ex.month)))byTab.set(r.tab,r);
+  });
+  const uniq=[...byTab.values()];
+  tbody.innerHTML=uniq.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:6px 10px"><code>${r.tab||'—'}</code></td>
+    <td style="padding:6px 10px">${r.fio||'—'}</td>
+    <td style="padding:6px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
+    <td style="padding:6px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+  </tr>`).join('');
+  empty.style.display='none';
+  preview.style.display='';
+}
+function afApply(){
+  const month=document.getElementById('afMonth').value;
+  const year=document.getElementById('afYear').value;
+  const recs=afGetRecords();
+  if(!recs.length){toast('Нет данных за выбранный период','err');return;}
+  // Дедупликация по табельному номеру
+  const byTab=new Map();
+  recs.forEach(r=>{
+    const ex=byTab.get(r.tab);
+    if(!ex||(+r.year>+ex.year||(+r.year===+ex.year&&+r.month>+ex.month)))byTab.set(r.tab,r);
+  });
+  const uniq=[...byTab.values()];
+  if(uniq.length===1){
+    // Один сотрудник — заполняем форму напрямую
+    const r=uniq[0];
+    if(r.fio)document.getElementById('tFio').value=r.fio;
+    if(r.tab)document.getElementById('tTab').value=r.tab;
+    if(r.pos)document.getElementById('tPos').value=r.pos;
+    if(r.fuel)document.getElementById('tFuel').value=r.fuel;
+    const wwEl=document.querySelector(`input[name="tWW"][value="${r.ww}"]`);
+    if(wwEl){wwEl.checked=true;}
+    closeAutoFill();
+    toast('✓ Данные заполнены из '+MONTHS[+month]+' '+year,'ok');
+  } else {
+    // Несколько сотрудников — показываем список для выбора
+    afShowPickList(uniq,month,year);
+  }
+}
+function afShowPickList(uniq,month,year){
+  const tbody=document.getElementById('afPreviewBody');
+  // Превращаем строки в кликабельные
+  tbody.innerHTML=uniq.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='#ebf3fc'" onmouseout="this.style.background=''" onclick="afPickEmployee(${i})">
+    <td style="padding:7px 10px"><code>${r.tab||'—'}</code></td>
+    <td style="padding:7px 10px;font-weight:500">${r.fio||'—'}</td>
+    <td style="padding:7px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
+    <td style="padding:7px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+  </tr>`).join('');
+  document.getElementById('afPreview').style.display='';
+  document.getElementById('afEmpty').style.display='none';
+  // Сохраняем список для выбора
+  window._afPickList={list:uniq,month,year};
+  toast('Выберите сотрудника из списка','ok');
+}
+function afPickEmployee(idx){
+  const {list,month,year}=window._afPickList||{};
+  if(!list||!list[idx])return;
+  const r=list[idx];
+  if(r.fio)document.getElementById('tFio').value=r.fio;
+  if(r.tab)document.getElementById('tTab').value=r.tab;
+  if(r.pos)document.getElementById('tPos').value=r.pos;
+  if(r.fuel)document.getElementById('tFuel').value=r.fuel;
+  const wwEl=document.querySelector(`input[name="tWW"][value="${r.ww}"]`);
+  if(wwEl){wwEl.checked=true;}
+  closeAutoFill();
+  toast('✓ Данные заполнены: '+r.fio+' из '+MONTHS[+month]+' '+year,'ok');
 }
 function clearTForm(){
   document.getElementById('formT').reset();
