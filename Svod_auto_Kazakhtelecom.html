@@ -3155,7 +3155,9 @@ function initStickyHead(wrapId,cardId){
     const wrapRect=wrap.getBoundingClientRect();
     const theadRect=thead.getBoundingClientRect();
     const cardHd=card.querySelector('.cardhd');
-    const stickyTop=cardHd?cardHd.getBoundingClientRect().bottom:58;
+    const tabbar=document.getElementById('tabbar');
+    const tabbarBottom=tabbar?tabbar.getBoundingClientRect().bottom:104;
+    const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:58, tabbarBottom);
 
     if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+40){
       const origThs=[...thead.querySelectorAll('tr:first-child th')];
