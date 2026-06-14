@@ -3403,11 +3403,15 @@ function initStickyHead(wrapId,cardId){
   const ft=document.createElement('table');
   ft.className=table.className;
   ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;pointer-events:none;';
-  // clone thead and strip sticky positioning from frozen cols (breaks inside fixed)
+  // clone thead; strip sticky from frozen cells (breaks inside fixed), store their left offsets
   const clonedThead=thead.cloneNode(true);
-  clonedThead.querySelectorAll('th,td').forEach(cell=>{
-    cell.style.position='';
-    cell.classList.remove('col-frozen','col-frozen-last');
+  const frozenClones=[];
+  clonedThead.querySelectorAll('th.col-frozen,td.col-frozen').forEach(cell=>{
+    const origLeft=parseFloat(cell.style.left)||0;
+    cell.style.position='relative';
+    cell.style.left='';
+    cell.style.zIndex='2';
+    frozenClones.push({cell,origLeft});
   });
   ft.appendChild(clonedThead);
   ftWrap.appendChild(ft);
@@ -3424,6 +3428,10 @@ function initStickyHead(wrapId,cardId){
     if(wrap.scrollLeft!==sl)wrap.scrollLeft=sl;
     if(scrollBar.scrollLeft!==sl)scrollBar.scrollLeft=sl;
     ftWrap.scrollLeft=sl;
+    // держим замороженные колонки на месте через translateX
+    frozenClones.forEach(({cell,origLeft})=>{
+      cell.style.transform=`translateX(${sl+origLeft}px)`;
+    });
     _syncing=false;
   }
   scrollBar.addEventListener('scroll',()=>syncH(scrollBar));
@@ -3456,6 +3464,9 @@ function initStickyHead(wrapId,cardId){
       floater.style.width=wrapRect.width+'px';
       ftWrap.scrollLeft=wrap.scrollLeft;
       scrollBar.scrollLeft=wrap.scrollLeft;
+      frozenClones.forEach(({cell,origLeft})=>{
+        cell.style.transform=`translateX(${wrap.scrollLeft+origLeft}px)`;
+      });
     } else {
       floater.style.display='none';
     }
