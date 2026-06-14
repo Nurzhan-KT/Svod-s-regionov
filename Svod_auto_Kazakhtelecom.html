@@ -1096,7 +1096,7 @@ SET_REGIONS.forEach(r=>{CITIES[r]=[r];});
 // Маппинг старых имён ДРБ → новые (для отображения legacy данных)
 const DRB_REG_MAP={'Центр':'ЦРУ Центрального региона','Юг':'ЦРУ Южного региона','Запад':'ЦРУ Западного региона','Север':'ЦРУ Северного региона','Восток':'ЦРУ Восточного региона','Алматы':'ЦРУ Алматинского региона'};
 const DRB_REG_MAP_REV=Object.fromEntries(Object.entries(DRB_REG_MAP).map(([k,v])=>[v,k]));
-function dispReg(r){return DRB_REG_MAP[r]||r;}
+function dispReg(r){return DRB_REG_MAP_REV[r]||r;}
 // Регионы ДРБ (новые имена)
 const DRB_GEO=['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона'];
 const DRB_REGIONS_NEW=[...DRB_GEO,'ДРТР'];
@@ -1242,7 +1242,7 @@ function showApp(){
     sel.innerHTML='<option value="">— Выберите регион —</option>';
     if(isDRB){
       // только 6 ЦРУ-регионов; ДРТР и СТиОУП — в цехе
-      DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+      DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);sel.appendChild(o);});
     } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
       KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='Сеть'){
@@ -1256,7 +1256,7 @@ function showApp(){
     const sel=document.getElementById('iReg');
     sel.innerHTML='<option value="">— Выберите регион —</option>';
     if(isDRB){
-      RI.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+      RI.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);sel.appendChild(o);});
     } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
       KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
     } else if(user.branch==='Сеть'){
@@ -1630,7 +1630,7 @@ function populateEditRegSelect(selId){
   sel.innerHTML='<option value="">— Выберите регион —</option>';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
   if(isDRB){
-    DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+    DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);sel.appendChild(o);});
     const grp=document.createElement('optgroup');grp.label='Подразделения';
     ['ДРТР','СТиОУП'].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;grp.appendChild(o);});
     sel.appendChild(grp);
@@ -1930,7 +1930,7 @@ function setupViewFilter(id, regions){
   if(!sel)return;
   const cur=sel.value;
   sel.innerHTML='<option value="all">Все регионы</option>';
-  regions.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o)});
+  regions.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);sel.appendChild(o)});
   if(cur)sel.value=cur;
   sel.style.display='';
 }
@@ -2333,7 +2333,7 @@ function renderStatusPanel(cid,regions,data,showLimits,limitsObj){
     return`<div class="stdot ${ok?'filled':'empty'}">
       <span>${ok?'✓':'✗'}</span>
       <div style="display:flex;flex-direction:column;line-height:1.3">
-        <span>${reg}</span>
+        <span>${dispReg(reg)}</span>
         ${showLimits&&lim!=null?`<span style="font-size:10px;opacity:.7">лимит: ${lim}</span>`:''}
       </div>
       ${ok?`<span class="cntbubble">${n}</span>`:''}
@@ -2418,7 +2418,7 @@ function onLoginBranchChange(){
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   if(branch==='ДРБ'){
-    DRB_REGIONS_NEW.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+    DRB_REGIONS_NEW.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);regSel.appendChild(o);});
     const hq=document.createElement('option');hq.value='HQ';hq.textContent='РИПС';regSel.appendChild(hq);
   } else if(branch==='ДКБ'||branch==='ДУП'){
     KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
@@ -2567,7 +2567,7 @@ function renderDrb(){
       r.cols.forEach(c=>{
         cells+=`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`;
       });
-      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
+      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${dispReg(r.reg)}</td>${cells}</tr>`;
     });
 
     let tfoot='<tr><td colspan="2" style="text-align:left;font-weight:700">Итого</td>';
@@ -2713,7 +2713,7 @@ function renderDrbS(){
       r.cols.forEach(c=>{
         cells+=`<td class="td-num">${c.cnt||'—'}</td><td class="td-sum">${fmt(c.sum)}</td><td class="td-num">${c.mgtCnt||'—'}</td><td class="td-sum">${fmt(c.mgtSum)}</td>`;
       });
-      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${r.reg}</td>${cells}</tr>`;
+      tbody+=`<tr><td>${i+1}</td><td class="td-reg">${dispReg(r.reg)}</td>${cells}</tr>`;
     });
 
     let tfoot='<tr><td colspan="2" style="text-align:left;font-weight:700">Итого</td>';
