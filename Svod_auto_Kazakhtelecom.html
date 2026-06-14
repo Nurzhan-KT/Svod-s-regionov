@@ -2221,7 +2221,7 @@ function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId, 
     if(DEPT_REGIONS.has(vf)){
       rows=rows.filter(r=>matchesDept(r, vf));
     } else {
-      rows=rows.filter(r=>recRegNorm(r)===vf||r.region===vf);
+      rows=rows.filter(r=>(recRegNorm(r)===vf||r.region===vf)&&!DEPT_REGIONS.has(r.city));
     }
   }
   if(pm!=='all')rows=rows.filter(r=>String(r.month)===pm);
