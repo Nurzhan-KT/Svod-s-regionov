@@ -2091,22 +2091,16 @@ function afFillForm(r){
   const mEl=document.getElementById('tMonth');const yEl=document.getElementById('tYear');
   if(mEl)mEl.value=tMonth;
   if(yEl&&[...yEl.options].some(o=>o.value===tYear))yEl.value=tYear;
-  // Регион и цех — только если поле не заблокировано (ЦРУ-пользователи)
+  // Регион и цех
   const tReg=document.getElementById('tReg');
-  if(r.region&&tReg&&tReg.style.display!=='none'){
+  if(r.region&&tReg){
     tReg.value=r.region;
     fillTCities();
-    if(r.city){setTimeout(()=>{
-      const cs=document.getElementById('tCity');
-      if(cs&&cs.style.display!=='none')cs.value=r.city;
-    },0);}
-  } else if(r.city){
-    // Для ДРТР/СТиОУП регион фиксирован, просто попробуем установить цех
-    setTimeout(()=>{
-      const cs=document.getElementById('tCity');
-      if(cs&&cs.style.display!=='none')cs.value=r.city;
-    },0);
   }
+  if(r.city){setTimeout(()=>{
+    const cs=document.getElementById('tCity');
+    if(cs)cs.value=r.city;
+  },0);}
   if(r.location)document.getElementById('tLocation').value=r.location;
   closeAutoFill();
   toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
@@ -2544,21 +2538,16 @@ function afSFillForm(r){
   const mEl=document.getElementById('sMonth');const yEl=document.getElementById('sYear');
   if(mEl)mEl.value=tMonth;
   if(yEl&&[...yEl.options].some(o=>o.value===tYear))yEl.value=tYear;
-  // Регион и цех — только если поле не заблокировано
+  // Регион и цех
   const sReg=document.getElementById('sReg');
-  if(r.region&&sReg&&sReg.style.display!=='none'){
+  if(r.region&&sReg){
     sReg.value=r.region;
     fillSCities();
-    if(r.city){setTimeout(()=>{
-      const cs=document.getElementById('sCity');
-      if(cs&&cs.style.display!=='none')cs.value=r.city;
-    },0);}
-  } else if(r.city){
-    setTimeout(()=>{
-      const cs=document.getElementById('sCity');
-      if(cs&&cs.style.display!=='none')cs.value=r.city;
-    },0);
   }
+  if(r.city){setTimeout(()=>{
+    const cs=document.getElementById('sCity');
+    if(cs)cs.value=r.city;
+  },0);}
   if(r.location)document.getElementById('sLocation').value=r.location;
   closeAutoFillS();
   toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
