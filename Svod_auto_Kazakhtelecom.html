@@ -435,6 +435,11 @@ th.col-frozen{position:sticky;z-index:3}
           <div class="btns">
             <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
             <button type="button" class="btn btn-outline" onclick="clearTForm()">Очистить форму</button>
+            <button type="button" class="btn" style="background:#e8f5e9;color:#1a6b2e;border:1.5px solid #a5d6a7;font-weight:600" onclick="autoFillT()">⚡ Автозаполнение</button>
+          </div>
+          <div style="margin-top:8px;padding:8px 12px;background:#f8f9fa;border-radius:var(--r2);border:1px dashed var(--border);font-size:12px;color:var(--muted)">
+            ⚡ <b>Автозаполнение</b> — заполняет ФИО, должность, топливо и режим работы по табельному номеру из данных прошлого месяца.<br>
+            <span style="color:#92400e">🔗 Автоматическое заполнение <b>фактически отработанного времени</b> будет доступно после интеграции с базой данных учёта рабочего времени.</span>
           </div>
         </form>
       </div>
@@ -1797,6 +1802,22 @@ function saveEditS(){
     logChange('service','edit',before,{...before,...upd});
     closeEditS();toast('✓ Изменения сохранены','ok');
   }).catch(e=>toast('Ошибка: '+e.message,'err'));
+}
+function autoFillT(){
+  const tab=document.getElementById('tTab').value.trim();
+  if(!tab){toast('Введите табельный номер для автозаполнения','err');return;}
+  const curMonth=document.getElementById('tMonth').value;
+  const curYear=document.getElementById('tYear').value;
+  const matches=tData.filter(r=>r.tab===tab&&!(String(r.month)===String(curMonth)&&String(r.year)===String(curYear)));
+  if(!matches.length){toast('Данные по этому табельному номеру не найдены','err');return;}
+  matches.sort((a,b)=>(+b.year-+a.year)||((+b.month)-(+a.month)));
+  const prev=matches[0];
+  if(prev.fio)document.getElementById('tFio').value=prev.fio;
+  if(prev.pos)document.getElementById('tPos').value=prev.pos;
+  if(prev.fuel)document.getElementById('tFuel').value=prev.fuel;
+  const wwEl=document.querySelector(`input[name="tWW"][value="${prev.ww}"]`);
+  if(wwEl){wwEl.checked=true;wwEl.dispatchEvent(new Event('change'));}
+  toast('✓ Заполнено из записи за '+MONTHS[+prev.month]+' '+prev.year,'ok');
 }
 function clearTForm(){
   document.getElementById('formT').reset();
