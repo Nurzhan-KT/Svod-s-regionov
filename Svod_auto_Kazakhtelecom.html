@@ -2002,6 +2002,7 @@ function autoFillT(){
     regWrap.style.display='';
     regSel.innerHTML='<option value="">— Все регионы —</option>';
     DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);regSel.appendChild(o);});
+    ['ДРТР','СТиОУП'].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
   } else {
     regWrap.style.display='none';
   }
@@ -2025,7 +2026,8 @@ function afGetRecords(){
   const isDept=DEPT_REGIONS.has(user?.region);
   return tData.filter(r=>{
     if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
-    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null)||DEPT_REGIONS.has(r.city);
+    if(isAdmin&&DEPT_REGIONS.has(reg))return r.city===reg;
     if(isDept)return r.city===user.region;
     const rReg=r.region;
     return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
@@ -2455,6 +2457,7 @@ function autoFillS(){
     regWrap.style.display='';
     regSel.innerHTML='<option value="">— Все регионы —</option>';
     DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);regSel.appendChild(o);});
+    ['ДРТР','СТиОУП'].forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
   } else {
     regWrap.style.display='none';
   }
@@ -2475,7 +2478,8 @@ function afSGetRecords(){
   const isDept=DEPT_REGIONS.has(user?.region);
   return sData.filter(r=>{
     if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
-    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null)||DEPT_REGIONS.has(r.city);
+    if(isAdmin&&DEPT_REGIONS.has(reg))return r.city===reg;
     if(isDept)return r.city===user.region;
     const rReg=r.region;
     return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
