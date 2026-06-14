@@ -468,8 +468,11 @@ th.col-frozen{position:sticky;z-index:3}
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
           <span class="export-note" id="exportNoteT"></span>
-          <select id="viewFilterT" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
+          <select id="viewFilterT" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="onRegionFilterChange('viewFilterT','cityFilterT');renderT()">
             <option value="all">Все регионы</option>
+          </select>
+          <select id="cityFilterT" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
+            <option value="all">Все цеха</option>
           </select>
           <select id="statusFilterT" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderT()">
             <option value="all">Все</option>
@@ -705,8 +708,11 @@ th.col-frozen{position:sticky;z-index:3}
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
           <span class="export-note" id="exportNoteS"></span>
-          <select id="viewFilterS" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
+          <select id="viewFilterS" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="onRegionFilterChange('viewFilterS','cityFilterS');renderS()">
             <option value="all">Все регионы</option>
+          </select>
+          <select id="cityFilterS" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
+            <option value="all">Все цеха</option>
           </select>
           <select id="statusFilterS" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderS()">
             <option value="all">Все</option>
@@ -2106,7 +2112,7 @@ function renderT(){
     return;
   }
   rebuildTHead();
-  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT','statusFilterT');
+  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT','statusFilterT','cityFilterT');
   document.getElementById('cntT').textContent=rows.length+' зап.';
   const colspan=showPayout?19:16;
   if(!rows.length){
@@ -2176,7 +2182,22 @@ function recEffectiveRegion(r){
   if(DEPT_REGIONS.has(r.city)) return r.city;
   return recRegNorm(r);
 }
-function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId){
+function onRegionFilterChange(regionSelId, citySelId){
+  const reg=document.getElementById(regionSelId)?.value;
+  const citySel=document.getElementById(citySelId);
+  if(!citySel)return;
+  if(!reg||reg==='all'||DEPT_REGIONS.has(reg)){
+    citySel.style.display='none';
+    citySel.value='all';
+    return;
+  }
+  const cities=(CITIES[reg]||[]).filter(c=>!DEPT_REGIONS.has(c));
+  if(!cities.length){citySel.style.display='none';citySel.value='all';return;}
+  citySel.innerHTML='<option value="all">Все цеха</option>';
+  cities.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;citySel.appendChild(o);});
+  citySel.style.display='';
+}
+function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId, cityFilterId){
   const vf=getViewFilter(regionFilterId);
   const pm=document.getElementById(monthId)?.value||'all';
   const py=document.getElementById(yearId)?.value||'all';
@@ -2208,6 +2229,10 @@ function getFilteredRows(data, regionFilterId, monthId, yearId, statusFilterId){
   if(sf==='active')rows=rows.filter(r=>!r.dismissed&&!r.transferred);
   else if(sf==='dismissed')rows=rows.filter(r=>r.dismissed);
   else if(sf==='transferred')rows=rows.filter(r=>r.transferred);
+  if(cityFilterId){
+    const cf=document.getElementById(cityFilterId)?.value||'all';
+    if(cf!=='all')rows=rows.filter(r=>r.city===cf);
+  }
   return rows;
 }
 
@@ -2232,7 +2257,7 @@ function exportT(){
   const sf=document.getElementById('statusFilterT')?.value||'all';
   if(sf==='changes'){exportChanges('transport','КТ_Изменения_Личный_авто');return;}
   const showPayout=hasTariffs();
-  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT','statusFilterT');
+  const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT','statusFilterT','cityFilterT');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Статус','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
   const colW=[4,14,8,18,16,22,28,14,12,30,14,14,12,14,28,24,18];
@@ -2338,7 +2363,7 @@ function renderS(){
     return;
   }
   rebuildSHead();
-  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS','statusFilterS');
+  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS','statusFilterS','cityFilterS');
   document.getElementById('cntS').textContent=rows.length+' зап.';
   const colspan=showPayout?19:17;
   if(!rows.length){
@@ -2389,7 +2414,7 @@ function exportS(){
   const sf=document.getElementById('statusFilterS')?.value||'all';
   if(sf==='changes'){exportChanges('service','КТ_Изменения_Служебный_авто');return;}
   const showPayout=hasTariffsS();
-  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS');
+  const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS',null,'cityFilterS');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
   const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
   const colW=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18];
