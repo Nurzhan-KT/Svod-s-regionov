@@ -3370,7 +3370,6 @@ function initFixedHeader(cardId){
 // ── FLOATING STICKY THEAD + SCROLLBAR ──
 const _stickyHeads={};
 function initStickyHead(wrapId,cardId){
-  // cleanup old floater
   if(_stickyHeads[wrapId]){
     const old=_stickyHeads[wrapId];
     old.floater.remove();
@@ -3386,60 +3385,76 @@ function initStickyHead(wrapId,cardId){
   const thead=table.querySelector('thead');
   if(!thead)return;
 
-  // outer floater container
+  // outer floater
   const floater=document.createElement('div');
-  floater.style.cssText='position:fixed;z-index:150;display:none;flex-direction:column;box-shadow:0 3px 10px rgba(0,30,80,.2);';
+  floater.style.cssText='position:fixed;z-index:150;display:none;flex-direction:column;box-shadow:0 3px 10px rgba(0,30,80,.2);overflow:hidden;';
 
-  // ── scrollbar strip ──
+  // scrollbar strip
   const scrollBar=document.createElement('div');
-  scrollBar.style.cssText='overflow-x:auto;overflow-y:hidden;height:14px;background:#e8edf4;cursor:pointer;';
+  scrollBar.style.cssText='overflow-x:auto;overflow-y:hidden;height:14px;background:#e8edf4;cursor:pointer;flex-shrink:0;';
   scrollBar.style.setProperty('scrollbar-width','thin');
   const scrollInner=document.createElement('div');
   scrollInner.style.cssText='height:1px;';
   scrollBar.appendChild(scrollInner);
 
-  // ── thead clone ──
+  // thead clone wrapped in overflow:hidden so horizontal scroll works
+  const ftWrap=document.createElement('div');
+  ftWrap.style.cssText='overflow:hidden;';
   const ft=document.createElement('table');
   ft.className=table.className;
   ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;pointer-events:none;';
-  ft.appendChild(thead.cloneNode(true));
+  // clone thead and strip sticky positioning from frozen cols (breaks inside fixed)
+  const clonedThead=thead.cloneNode(true);
+  clonedThead.querySelectorAll('th,td').forEach(cell=>{
+    cell.style.position='';
+    cell.classList.remove('col-frozen','col-frozen-last');
+  });
+  ft.appendChild(clonedThead);
+  ftWrap.appendChild(ft);
 
   floater.appendChild(scrollBar);
-  floater.appendChild(ft);
+  floater.appendChild(ftWrap);
   document.body.appendChild(floater);
 
-  // sync scrolls
+  // sync horizontal scroll between wrap, scrollbar and cloned header
   let _syncing=false;
-  scrollBar.addEventListener('scroll',()=>{
+  function syncH(src){
     if(_syncing)return;_syncing=true;
-    wrap.scrollLeft=scrollBar.scrollLeft;
+    const sl=src.scrollLeft;
+    if(wrap.scrollLeft!==sl)wrap.scrollLeft=sl;
+    if(scrollBar.scrollLeft!==sl)scrollBar.scrollLeft=sl;
+    ftWrap.scrollLeft=sl;
     _syncing=false;
-  });
-  wrap.addEventListener('scroll',()=>{
-    if(_syncing)return;_syncing=true;
-    scrollBar.scrollLeft=wrap.scrollLeft;
-    _syncing=false;
-  },{passive:true});
+  }
+  scrollBar.addEventListener('scroll',()=>syncH(scrollBar));
+  wrap.addEventListener('scroll',()=>syncH(wrap),{passive:true});
 
   function syncAndShow(){
     const wrapRect=wrap.getBoundingClientRect();
     const theadRect=thead.getBoundingClientRect();
     const cardHd=card.querySelector('.cardhd');
-    const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:getAppOffset(), getAppOffset());
+    const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:getAppOffset(),getAppOffset());
 
-    if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+40){
-      const origThs=[...thead.querySelectorAll('tr:first-child th')];
-      const cloneThs=[...ft.querySelectorAll('tr:first-child th')];
-      origThs.forEach((th,i)=>{
-        if(cloneThs[i]){cloneThs[i].style.minWidth=th.offsetWidth+'px';cloneThs[i].style.maxWidth=th.offsetWidth+'px';}
+    if(theadRect.bottom<stickyTop&&wrapRect.bottom>stickyTop+40){
+      // sync column widths from original thead rows
+      const origRows=[...thead.querySelectorAll('tr')];
+      const cloneRows=[...ft.querySelectorAll('tr')];
+      origRows.forEach((row,ri)=>{
+        const origCells=[...row.querySelectorAll('th')];
+        const cloneCells=cloneRows[ri]?[...cloneRows[ri].querySelectorAll('th')]:[];
+        origCells.forEach((th,ci)=>{
+          const w=th.getBoundingClientRect().width;
+          if(cloneCells[ci]){cloneCells[ci].style.minWidth=w+'px';cloneCells[ci].style.maxWidth=w+'px';cloneCells[ci].style.width=w+'px';}
+        });
       });
-      const tblW=table.offsetWidth;
+      const tblW=table.scrollWidth;
       ft.style.width=tblW+'px';
       scrollInner.style.width=tblW+'px';
       floater.style.display='flex';
       floater.style.top=stickyTop+'px';
       floater.style.left=wrapRect.left+'px';
       floater.style.width=wrapRect.width+'px';
+      ftWrap.scrollLeft=wrap.scrollLeft;
       scrollBar.scrollLeft=wrap.scrollLeft;
     } else {
       floater.style.display='none';
