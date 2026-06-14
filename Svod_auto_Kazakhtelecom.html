@@ -3057,6 +3057,11 @@ function initFrozenCols(wrapId, frozenCount){
 // ── FIXED CARD HEADER ON SCROLL ──
 const _fixedHdrs={};
 const APP_HDR_H=58;
+function getAppOffset(){
+  const tb=document.getElementById('tabbar');
+  if(tb&&tb.offsetHeight>0)return tb.getBoundingClientRect().bottom;
+  return APP_HDR_H;
+}
 function initFixedHeader(cardId){
   if(_fixedHdrs[cardId]){
     window.removeEventListener('scroll',_fixedHdrs[cardId]);
@@ -3074,12 +3079,12 @@ function initFixedHeader(cardId){
   function update(){
     const rect=card.getBoundingClientRect();
     const hdH=hd.offsetHeight;
-    // card top has scrolled above APP_HDR_H → fix the header
-    if(rect.top<APP_HDR_H && rect.bottom>APP_HDR_H+hdH+20){
+    const offset=getAppOffset();
+    if(rect.top<offset && rect.bottom>offset+hdH+20){
       spacer.style.display='block';
       spacer.style.height=hdH+'px';
       hd.classList.add('cardhd-fixed');
-      hd.style.top=APP_HDR_H+'px';
+      hd.style.top=offset+'px';
       hd.style.left=card.getBoundingClientRect().left+'px';
       hd.style.width=card.offsetWidth+'px';
     } else {
@@ -3155,9 +3160,7 @@ function initStickyHead(wrapId,cardId){
     const wrapRect=wrap.getBoundingClientRect();
     const theadRect=thead.getBoundingClientRect();
     const cardHd=card.querySelector('.cardhd');
-    const tabbar=document.getElementById('tabbar');
-    const tabbarBottom=tabbar?tabbar.getBoundingClientRect().bottom:104;
-    const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:58, tabbarBottom);
+    const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:getAppOffset(), getAppOffset());
 
     if(theadRect.bottom<stickyTop && wrapRect.bottom>stickyTop+40){
       const origThs=[...thead.querySelectorAll('tr:first-child th')];
