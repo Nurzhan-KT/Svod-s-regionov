@@ -680,6 +680,11 @@ th.col-frozen{position:sticky;z-index:3}
           <div class="btns">
             <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
             <button type="button" class="btn btn-outline" onclick="clearSForm()">Очистить форму</button>
+            <button type="button" class="btn" style="background:#e8f5e9;color:#1a6b2e;border:1.5px solid #a5d6a7;font-weight:600" onclick="autoFillS()">⚡ Автозаполнение</button>
+          </div>
+          <div style="margin-top:8px;padding:8px 12px;background:#f8f9fa;border-radius:var(--r2);border:1px dashed var(--border);font-size:12px;color:var(--muted)">
+            ⚡ <b>Автозаполнение</b> — заполняет ФИО, должность, марку и номер авто, режим работы по табельному номеру из данных прошлого месяца.<br>
+            <span style="color:#92400e">🔗 Автоматическое заполнение <b>фактически отработанного времени</b> будет доступно после интеграции с базой данных учёта рабочего времени.</span>
           </div>
         </form>
       </div>
@@ -1020,6 +1025,87 @@ th.col-frozen{position:sticky;z-index:3}
     <div class="edit-modal-btns">
       <button class="btn btn-outline" onclick="closeAutoFill()">Отмена</button>
       <button class="btn btn-navy" onclick="afApply()">⚡ Заполнить форму</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTOFILL MODAL — Служебный автотранспорт -->
+<div id="autoFillModalS" class="edit-modal-bg" style="display:none" onclick="if(event.target===this)closeAutoFillS()">
+  <div class="edit-modal" style="width:min(620px,95vw)">
+    <h3>⚡ Автозаполнение — Служебный автотранспорт</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="border:1.5px solid var(--border);border-radius:var(--r2);padding:12px 14px;background:#f8f9fa">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📥 Источник (копировать из)</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Месяц</label>
+            <select id="afSMonth" onchange="afSLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="1">Январь</option><option value="2">Февраль</option>
+              <option value="3">Март</option><option value="4">Апрель</option>
+              <option value="5">Май</option><option value="6">Июнь</option>
+              <option value="7">Июль</option><option value="8">Август</option>
+              <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+              <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Год</label>
+            <select id="afSYear" onchange="afSLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="2024">2024</option><option value="2025">2025</option>
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="border:1.5px solid var(--blue);border-radius:var(--r2);padding:12px 14px;background:#ebf3fc">
+        <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Заполнить за (период)</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Месяц</label>
+            <select id="afSTargetMonth" style="width:100%;padding:6px 8px;border:1.5px solid var(--blue);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="1">Январь</option><option value="2">Февраль</option>
+              <option value="3">Март</option><option value="4">Апрель</option>
+              <option value="5">Май</option><option value="6">Июнь</option>
+              <option value="7">Июль</option><option value="8">Август</option>
+              <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+              <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Год</label>
+            <select id="afSTargetYear" style="width:100%;padding:6px 8px;border:1.5px solid var(--blue);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="2024">2024</option><option value="2025">2025</option>
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="afSRegionWrap" style="display:none;margin-bottom:10px">
+      <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Регион</label>
+      <select id="afSRegion" onchange="afSLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+        <option value="">— Все регионы —</option>
+      </select>
+    </div>
+    <div id="afSPreview" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r2);display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:var(--pale);position:sticky;top:0">
+          <th style="padding:7px 8px;width:36px"></th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Таб. №</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">ФИО</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Должность</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Регион</th>
+        </tr></thead>
+        <tbody id="afSPreviewBody"></tbody>
+      </table>
+    </div>
+    <div id="afSEmpty" style="display:none;padding:14px;text-align:center;color:var(--muted);font-size:13px;border:1px solid var(--border);border-radius:var(--r2)">Нет данных за выбранный период</div>
+    <div style="margin-top:10px;font-size:12px;color:#92400e;background:#fef3c7;padding:8px 12px;border-radius:var(--r2)">
+      🔗 <b>Дней отработано</b> будет заполняться автоматически после интеграции с базой данных учёта рабочего времени.
+    </div>
+    <div class="edit-modal-btns">
+      <button class="btn btn-outline" onclick="closeAutoFillS()">Отмена</button>
+      <button class="btn btn-navy" onclick="afSApply()">⚡ Заполнить форму</button>
     </div>
   </div>
 </div>
@@ -2337,6 +2423,131 @@ function submitS(e){
   }).catch(e=>toast('Ошибка: '+e.message,'err'));
 }
 // delS moved above with logging
+function autoFillS(){
+  const isAdmin=user?.role==='admin'||isHQ();
+  const now=new Date();
+  let pm=now.getMonth(); let py=now.getFullYear();
+  if(pm===0){pm=12;py--;}
+  const cm=now.getMonth()+1; const cy=now.getFullYear();
+  const afM=document.getElementById('afSMonth');
+  const afY=document.getElementById('afSYear');
+  const afTM=document.getElementById('afSTargetMonth');
+  const afTY=document.getElementById('afSTargetYear');
+  afM.value=pm;
+  if([...afY.options].some(o=>o.value===String(py)))afY.value=py;
+  afTM.value=cm;
+  if([...afTY.options].some(o=>o.value===String(cy)))afTY.value=cy;
+  const regWrap=document.getElementById('afSRegionWrap');
+  const regSel=document.getElementById('afSRegion');
+  if(isAdmin){
+    regWrap.style.display='';
+    regSel.innerHTML='<option value="">— Все регионы —</option>';
+    DRB_GEO.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);regSel.appendChild(o);});
+  } else {
+    regWrap.style.display='none';
+  }
+  document.getElementById('autoFillModalS').style.display='flex';
+  afSLoadPreview();
+}
+function closeAutoFillS(){document.getElementById('autoFillModalS').style.display='none';}
+function afSGetRegion(){
+  const isAdmin=user?.role==='admin'||isHQ();
+  if(isAdmin){const v=document.getElementById('afSRegion').value;return v||null;}
+  return user?.region||null;
+}
+function afSGetRecords(){
+  const month=document.getElementById('afSMonth').value;
+  const year=document.getElementById('afSYear').value;
+  const reg=afSGetRegion();
+  const isAdmin=user?.role==='admin'||isHQ();
+  return sData.filter(r=>{
+    if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
+    if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    const rReg=r.region;
+    return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
+  });
+}
+function afSBuildList(){
+  const recs=afSGetRecords();
+  if(!recs.length)return[];
+  const byTab=new Map();
+  recs.forEach(r=>{
+    const ex=byTab.get(r.tab);
+    if(!ex||(+r.year>+ex.year||(+r.year===+ex.year&&+r.month>+ex.month)))byTab.set(r.tab,r);
+  });
+  return[...byTab.values()];
+}
+function afSRenderList(pickMode){
+  const {list}=window._afSPickList||{};
+  const tbody=document.getElementById('afSPreviewBody');
+  const preview=document.getElementById('afSPreview');
+  const empty=document.getElementById('afSEmpty');
+  if(!list||!list.length){preview.style.display='none';empty.style.display='';return;}
+  const delBtn=`<button type="button" onclick="event.stopPropagation();afSDeleteRow(IDX)" title="Убрать из списка" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;line-height:1.4">✕</button>`;
+  if(pickMode){
+    tbody.innerHTML=list.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='#ebf3fc'" onmouseout="this.style.background=''">
+      <td style="padding:5px 8px;width:36px">${delBtn.replace('IDX',i)}</td>
+      <td style="padding:7px 10px" onclick="afSPickEmployee(${i})"><code>${r.tab||'—'}</code></td>
+      <td style="padding:7px 10px;font-weight:500" onclick="afSPickEmployee(${i})">${r.fio||'—'}</td>
+      <td style="padding:7px 10px;font-size:11.5px;color:var(--muted)" onclick="afSPickEmployee(${i})">${r.pos||'—'}</td>
+      <td style="padding:7px 10px" onclick="afSPickEmployee(${i})"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+    </tr>`).join('');
+  } else {
+    tbody.innerHTML=list.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;width:36px">${delBtn.replace('IDX',i)}</td>
+      <td style="padding:6px 10px"><code>${r.tab||'—'}</code></td>
+      <td style="padding:6px 10px">${r.fio||'—'}</td>
+      <td style="padding:6px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
+      <td style="padding:6px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+    </tr>`).join('');
+  }
+  empty.style.display='none';
+  preview.style.display='';
+}
+function afSDeleteRow(idx){
+  if(!window._afSPickList)return;
+  window._afSPickList.list.splice(idx,1);
+  afSRenderList(window._afSPickList.pickMode);
+}
+function afSLoadPreview(){
+  const list=afSBuildList();
+  if(!list.length){document.getElementById('afSPreview').style.display='none';document.getElementById('afSEmpty').style.display='';return;}
+  window._afSPickList={list,pickMode:false};
+  afSRenderList(false);
+}
+function afSFillForm(r){
+  const tMonth=document.getElementById('afSTargetMonth').value;
+  const tYear=document.getElementById('afSTargetYear').value;
+  if(r.fio)document.getElementById('sFio').value=r.fio;
+  if(r.tab)document.getElementById('sTab').value=r.tab;
+  if(r.pos)document.getElementById('sPos').value=r.pos;
+  if(r.car)document.getElementById('sCar').value=r.car;
+  if(r.carNum)document.getElementById('sCarNum').value=r.carNum;
+  const wwEl=document.querySelector(`input[name="sWW"][value="${r.ww}"]`);
+  if(wwEl){wwEl.checked=true;}
+  const mEl=document.getElementById('sMonth');const yEl=document.getElementById('sYear');
+  if(mEl)mEl.value=tMonth;
+  if(yEl&&[...yEl.options].some(o=>o.value===tYear))yEl.value=tYear;
+  closeAutoFillS();
+  toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
+}
+function afSApply(){
+  let list=window._afSPickList?.list;
+  if(!list){list=afSBuildList();window._afSPickList={list,pickMode:false};}
+  if(!list.length){toast('Нет данных за выбранный период','err');return;}
+  if(list.length===1){
+    afSFillForm(list[0]);
+  } else {
+    window._afSPickList.pickMode=true;
+    afSRenderList(true);
+    toast('Нажмите на строку сотрудника для заполнения формы','ok');
+  }
+}
+function afSPickEmployee(idx){
+  const {list}=window._afSPickList||{};
+  if(!list||!list[idx])return;
+  afSFillForm(list[idx]);
+}
 function clearSForm(){
   document.getElementById('formS').reset();
   document.getElementById('sCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
