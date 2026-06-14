@@ -968,6 +968,7 @@ th.col-frozen{position:sticky;z-index:3}
     <div id="afPreview" style="margin-top:14px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r2);display:none">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px">
         <thead><tr style="background:var(--pale);position:sticky;top:0">
+          <th style="padding:7px 8px;width:36px"></th>
           <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Таб. №</th>
           <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">ФИО</th>
           <th style="padding:7px 10px;text-align:left;font-weight:600;color:var(--navy)">Должность</th>
@@ -1906,43 +1907,65 @@ function afGetRecords(){
     return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
   });
 }
-function afLoadPreview(){
+function afBuildList(){
   const recs=afGetRecords();
-  const tbody=document.getElementById('afPreviewBody');
-  const preview=document.getElementById('afPreview');
-  const empty=document.getElementById('afEmpty');
-  if(!recs.length){preview.style.display='none';empty.style.display='';return;}
-  // Дедупликация по табельному номеру — берём последнюю запись
+  if(!recs.length)return[];
   const byTab=new Map();
   recs.forEach(r=>{
     const ex=byTab.get(r.tab);
     if(!ex||(+r.year>+ex.year||(+r.year===+ex.year&&+r.month>+ex.month)))byTab.set(r.tab,r);
   });
-  const uniq=[...byTab.values()];
-  tbody.innerHTML=uniq.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:6px 10px"><code>${r.tab||'—'}</code></td>
-    <td style="padding:6px 10px">${r.fio||'—'}</td>
-    <td style="padding:6px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
-    <td style="padding:6px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
-  </tr>`).join('');
+  return[...byTab.values()];
+}
+function afRenderList(pickMode){
+  const {list,month,year}=window._afPickList||{};
+  const tbody=document.getElementById('afPreviewBody');
+  const preview=document.getElementById('afPreview');
+  const empty=document.getElementById('afEmpty');
+  if(!list||!list.length){preview.style.display='none';empty.style.display='';return;}
+  const delBtn=`<button type="button" onclick="event.stopPropagation();afDeleteRow(IDX)" title="Убрать из списка" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:5px;padding:2px 8px;font-size:12px;cursor:pointer;line-height:1.4">✕</button>`;
+  if(pickMode){
+    tbody.innerHTML=list.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='#ebf3fc'" onmouseout="this.style.background=''">
+      <td style="padding:5px 8px;width:36px">${delBtn.replace('IDX',i)}</td>
+      <td style="padding:7px 10px" onclick="afPickEmployee(${i})"><code>${r.tab||'—'}</code></td>
+      <td style="padding:7px 10px;font-weight:500" onclick="afPickEmployee(${i})">${r.fio||'—'}</td>
+      <td style="padding:7px 10px;font-size:11.5px;color:var(--muted)" onclick="afPickEmployee(${i})">${r.pos||'—'}</td>
+      <td style="padding:7px 10px" onclick="afPickEmployee(${i})"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+    </tr>`).join('');
+  } else {
+    tbody.innerHTML=list.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;width:36px">${delBtn.replace('IDX',i)}</td>
+      <td style="padding:6px 10px"><code>${r.tab||'—'}</code></td>
+      <td style="padding:6px 10px">${r.fio||'—'}</td>
+      <td style="padding:6px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
+      <td style="padding:6px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
+    </tr>`).join('');
+  }
   empty.style.display='none';
   preview.style.display='';
+}
+function afDeleteRow(idx){
+  if(!window._afPickList)return;
+  window._afPickList.list.splice(idx,1);
+  afRenderList(window._afPickList.pickMode);
+}
+function afLoadPreview(){
+  const list=afBuildList();
+  const month=document.getElementById('afMonth').value;
+  const year=document.getElementById('afYear').value;
+  if(!list.length){document.getElementById('afPreview').style.display='none';document.getElementById('afEmpty').style.display='';return;}
+  window._afPickList={list,month,year,pickMode:false};
+  afRenderList(false);
 }
 function afApply(){
   const month=document.getElementById('afMonth').value;
   const year=document.getElementById('afYear').value;
-  const recs=afGetRecords();
-  if(!recs.length){toast('Нет данных за выбранный период','err');return;}
-  // Дедупликация по табельному номеру
-  const byTab=new Map();
-  recs.forEach(r=>{
-    const ex=byTab.get(r.tab);
-    if(!ex||(+r.year>+ex.year||(+r.year===+ex.year&&+r.month>+ex.month)))byTab.set(r.tab,r);
-  });
-  const uniq=[...byTab.values()];
-  if(uniq.length===1){
-    // Один сотрудник — заполняем форму напрямую
-    const r=uniq[0];
+  // Используем список если уже загружен, иначе строим заново
+  let list=window._afPickList?.list;
+  if(!list){list=afBuildList();window._afPickList={list,month,year,pickMode:false};}
+  if(!list.length){toast('Нет данных за выбранный период','err');return;}
+  if(list.length===1){
+    const r=list[0];
     if(r.fio)document.getElementById('tFio').value=r.fio;
     if(r.tab)document.getElementById('tTab').value=r.tab;
     if(r.pos)document.getElementById('tPos').value=r.pos;
@@ -1952,24 +1975,17 @@ function afApply(){
     closeAutoFill();
     toast('✓ Данные заполнены из '+MONTHS[+month]+' '+year,'ok');
   } else {
-    // Несколько сотрудников — показываем список для выбора
-    afShowPickList(uniq,month,year);
+    window._afPickList={list,month,year,pickMode:true};
+    afRenderList(true);
+    document.getElementById('afPreview').style.display='';
+    toast('Нажмите на строку сотрудника для заполнения формы','ok');
   }
 }
 function afShowPickList(uniq,month,year){
-  const tbody=document.getElementById('afPreviewBody');
-  // Превращаем строки в кликабельные
-  tbody.innerHTML=uniq.map((r,i)=>`<tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='#ebf3fc'" onmouseout="this.style.background=''" onclick="afPickEmployee(${i})">
-    <td style="padding:7px 10px"><code>${r.tab||'—'}</code></td>
-    <td style="padding:7px 10px;font-weight:500">${r.fio||'—'}</td>
-    <td style="padding:7px 10px;font-size:11.5px;color:var(--muted)">${r.pos||'—'}</td>
-    <td style="padding:7px 10px"><span class="badge badge-b" style="font-size:11px">${dispReg(r.region)}</span></td>
-  </tr>`).join('');
+  window._afPickList={list:uniq,month,year,pickMode:true};
+  afRenderList(true);
   document.getElementById('afPreview').style.display='';
   document.getElementById('afEmpty').style.display='none';
-  // Сохраняем список для выбора
-  window._afPickList={list:uniq,month,year};
-  toast('Выберите сотрудника из списка','ok');
 }
 function afPickEmployee(idx){
   const {list,month,year}=window._afPickList||{};
