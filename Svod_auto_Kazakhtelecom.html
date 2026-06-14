@@ -2022,9 +2022,11 @@ function afGetRecords(){
   const year=document.getElementById('afYear').value;
   const reg=afGetRegion();
   const isAdmin=user?.role==='admin'||isHQ();
+  const isDept=DEPT_REGIONS.has(user?.region);
   return tData.filter(r=>{
     if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
     if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    if(isDept)return r.city===user.region;
     const rReg=r.region;
     return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
   });
@@ -2470,9 +2472,11 @@ function afSGetRecords(){
   const year=document.getElementById('afSYear').value;
   const reg=afSGetRegion();
   const isAdmin=user?.role==='admin'||isHQ();
+  const isDept=DEPT_REGIONS.has(user?.region);
   return sData.filter(r=>{
     if(String(r.month)!==String(month)||String(r.year)!==String(year))return false;
     if(isAdmin&&!reg)return DRB_GEO.includes(r.region)||(DRB_REG_MAP_REV[r.region]!=null);
+    if(isDept)return r.city===user.region;
     const rReg=r.region;
     return rReg===reg||DRB_REG_MAP[rReg]===reg||DRB_REG_MAP_REV[rReg]===reg||rReg===(DRB_REG_MAP[reg]||reg);
   });
