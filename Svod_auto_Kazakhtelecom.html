@@ -3385,7 +3385,7 @@ function initStickyHead(wrapId,cardId){
   const thead=table.querySelector('thead');
   if(!thead)return;
 
-  // outer floater
+  // outer floater — clips content, no overflow
   const floater=document.createElement('div');
   floater.style.cssText='position:fixed;z-index:150;display:none;flex-direction:column;box-shadow:0 3px 10px rgba(0,30,80,.2);overflow:hidden;';
 
@@ -3397,45 +3397,47 @@ function initStickyHead(wrapId,cardId){
   scrollInner.style.cssText='height:1px;';
   scrollBar.appendChild(scrollInner);
 
-  // thead clone wrapped in overflow:hidden so horizontal scroll works
+  // thead clone inside overflow:hidden wrapper — scrolls with table
   const ftWrap=document.createElement('div');
-  ftWrap.style.cssText='overflow:hidden;';
+  ftWrap.style.cssText='overflow:hidden;width:100%;';
   const ft=document.createElement('table');
   ft.className=table.className;
-  ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;pointer-events:none;';
-  // clone thead; strip sticky from frozen cells (breaks inside fixed), store their left offsets
+  ft.style.cssText='border-collapse:collapse;font-size:13px;table-layout:fixed;pointer-events:none;border:none;';
+
+  // strip all sticky/frozen positioning from clone — columns scroll away normally
   const clonedThead=thead.cloneNode(true);
-  const frozenClones=[];
-  clonedThead.querySelectorAll('th.col-frozen,td.col-frozen').forEach(cell=>{
-    const origLeft=parseFloat(cell.style.left)||0;
-    cell.style.position='relative';
+  clonedThead.querySelectorAll('th,td').forEach(cell=>{
+    cell.style.position='';
     cell.style.left='';
-    cell.style.zIndex='2';
-    frozenClones.push({cell,origLeft});
+    cell.style.zIndex='';
+    cell.classList.remove('col-frozen','col-frozen-last');
   });
   ft.appendChild(clonedThead);
   ftWrap.appendChild(ft);
-
   floater.appendChild(scrollBar);
   floater.appendChild(ftWrap);
   document.body.appendChild(floater);
 
-  // sync horizontal scroll between wrap, scrollbar and cloned header
+  // measure column widths from tbody first row for accuracy
+  function getColWidths(){
+    const tbodyRow=table.querySelector('tbody tr');
+    if(tbodyRow){
+      return[...tbodyRow.querySelectorAll('td')].map(td=>td.getBoundingClientRect().width);
+    }
+    return[...thead.querySelectorAll('tr:first-child th')].map(th=>th.getBoundingClientRect().width);
+  }
+
+  // sync horizontal scroll
   let _syncing=false;
-  function syncH(src){
+  function syncH(sl){
     if(_syncing)return;_syncing=true;
-    const sl=src.scrollLeft;
     if(wrap.scrollLeft!==sl)wrap.scrollLeft=sl;
     if(scrollBar.scrollLeft!==sl)scrollBar.scrollLeft=sl;
     ftWrap.scrollLeft=sl;
-    // держим замороженные колонки на месте через translateX
-    frozenClones.forEach(({cell,origLeft})=>{
-      cell.style.transform=`translateX(${sl+origLeft}px)`;
-    });
     _syncing=false;
   }
-  scrollBar.addEventListener('scroll',()=>syncH(scrollBar));
-  wrap.addEventListener('scroll',()=>syncH(wrap),{passive:true});
+  scrollBar.addEventListener('scroll',()=>syncH(scrollBar.scrollLeft));
+  wrap.addEventListener('scroll',()=>syncH(wrap.scrollLeft),{passive:true});
 
   function syncAndShow(){
     const wrapRect=wrap.getBoundingClientRect();
@@ -3444,17 +3446,17 @@ function initStickyHead(wrapId,cardId){
     const stickyTop=Math.max(cardHd?cardHd.getBoundingClientRect().bottom:getAppOffset(),getAppOffset());
 
     if(theadRect.bottom<stickyTop&&wrapRect.bottom>stickyTop+40){
-      // sync column widths from original thead rows
-      const origRows=[...thead.querySelectorAll('tr')];
+      // set column widths from real cells
+      const widths=getColWidths();
       const cloneRows=[...ft.querySelectorAll('tr')];
-      origRows.forEach((row,ri)=>{
-        const origCells=[...row.querySelectorAll('th')];
-        const cloneCells=cloneRows[ri]?[...cloneRows[ri].querySelectorAll('th')]:[];
-        origCells.forEach((th,ci)=>{
-          const w=th.getBoundingClientRect().width;
-          if(cloneCells[ci]){cloneCells[ci].style.minWidth=w+'px';cloneCells[ci].style.maxWidth=w+'px';cloneCells[ci].style.width=w+'px';}
+      // apply widths to first clone row (drives layout for all)
+      const firstCloneRow=cloneRows[0];
+      if(firstCloneRow){
+        [...firstCloneRow.querySelectorAll('th')].forEach((th,i)=>{
+          const w=widths[i]||0;
+          if(w){th.style.width=w+'px';th.style.minWidth=w+'px';th.style.maxWidth=w+'px';}
         });
-      });
+      }
       const tblW=table.scrollWidth;
       ft.style.width=tblW+'px';
       scrollInner.style.width=tblW+'px';
@@ -3464,9 +3466,6 @@ function initStickyHead(wrapId,cardId){
       floater.style.width=wrapRect.width+'px';
       ftWrap.scrollLeft=wrap.scrollLeft;
       scrollBar.scrollLeft=wrap.scrollLeft;
-      frozenClones.forEach(({cell,origLeft})=>{
-        cell.style.transform=`translateX(${wrap.scrollLeft+origLeft}px)`;
-      });
     } else {
       floater.style.display='none';
     }
