@@ -936,36 +936,66 @@ th.col-frozen{position:sticky;z-index:3}
 
 <!-- AUTOFILL MODAL — Личный автотранспорт -->
 <div id="autoFillModal" class="edit-modal-bg" style="display:none" onclick="if(event.target===this)closeAutoFill()">
-  <div class="edit-modal" style="width:min(520px,95vw)">
+  <div class="edit-modal" style="width:min(620px,95vw)">
     <h3>⚡ Автозаполнение — Личный автотранспорт</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Выберите месяц, из которого нужно скопировать данные сотрудников. Поле «Дней отработано» не заполняется — будет доступно после интеграции с базой учёта рабочего времени.</p>
-    <div class="fgrid">
-      <div class="ff" id="afRegionWrap" style="display:none">
-        <label>Регион</label>
-        <select id="afRegion">
-          <option value="">— Все регионы —</option>
-        </select>
+    <!-- Две карточки: источник и назначение -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="border:1.5px solid var(--border);border-radius:var(--r2);padding:12px 14px;background:#f8f9fa">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📥 Источник (копировать из)</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Месяц</label>
+            <select id="afMonth" onchange="afLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="1">Январь</option><option value="2">Февраль</option>
+              <option value="3">Март</option><option value="4">Апрель</option>
+              <option value="5">Май</option><option value="6">Июнь</option>
+              <option value="7">Июль</option><option value="8">Август</option>
+              <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+              <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Год</label>
+            <select id="afYear" onchange="afLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="2024">2024</option><option value="2025">2025</option>
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="ff">
-        <label>Месяц источник *</label>
-        <select id="afMonth">
-          <option value="1">Январь</option><option value="2">Февраль</option>
-          <option value="3">Март</option><option value="4">Апрель</option>
-          <option value="5">Май</option><option value="6">Июнь</option>
-          <option value="7">Июль</option><option value="8">Август</option>
-          <option value="9">Сентябрь</option><option value="10">Октябрь</option>
-          <option value="11">Ноябрь</option><option value="12">Декабрь</option>
-        </select>
-      </div>
-      <div class="ff">
-        <label>Год источник *</label>
-        <select id="afYear">
-          <option value="2024">2024</option><option value="2025">2025</option>
-          <option value="2026">2026</option><option value="2027">2027</option>
-        </select>
+      <div style="border:1.5px solid var(--blue);border-radius:var(--r2);padding:12px 14px;background:#ebf3fc">
+        <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Заполнить за (период)</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Месяц</label>
+            <select id="afTargetMonth" style="width:100%;padding:6px 8px;border:1.5px solid var(--blue);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="1">Январь</option><option value="2">Февраль</option>
+              <option value="3">Март</option><option value="4">Апрель</option>
+              <option value="5">Май</option><option value="6">Июнь</option>
+              <option value="7">Июль</option><option value="8">Август</option>
+              <option value="9">Сентябрь</option><option value="10">Октябрь</option>
+              <option value="11">Ноябрь</option><option value="12">Декабрь</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Год</label>
+            <select id="afTargetYear" style="width:100%;padding:6px 8px;border:1.5px solid var(--blue);border-radius:var(--r2);font-size:13px;font-family:inherit">
+              <option value="2024">2024</option><option value="2025">2025</option>
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="afPreview" style="margin-top:14px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r2);display:none">
+    <!-- Регион (только для admin) -->
+    <div id="afRegionWrap" style="display:none;margin-bottom:10px">
+      <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px">Регион</label>
+      <select id="afRegion" onchange="afLoadPreview()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit">
+        <option value="">— Все регионы —</option>
+      </select>
+    </div>
+    <!-- Список сотрудников -->
+    <div id="afPreview" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r2);display:none">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px">
         <thead><tr style="background:var(--pale);position:sticky;top:0">
           <th style="padding:7px 8px;width:36px"></th>
@@ -977,13 +1007,12 @@ th.col-frozen{position:sticky;z-index:3}
         <tbody id="afPreviewBody"></tbody>
       </table>
     </div>
-    <div id="afEmpty" style="display:none;padding:16px;text-align:center;color:var(--muted);font-size:13px">Нет данных за выбранный период</div>
+    <div id="afEmpty" style="display:none;padding:14px;text-align:center;color:var(--muted);font-size:13px;border:1px solid var(--border);border-radius:var(--r2)">Нет данных за выбранный период</div>
     <div style="margin-top:10px;font-size:12px;color:#92400e;background:#fef3c7;padding:8px 12px;border-radius:var(--r2)">
       🔗 <b>Дней отработано</b> будет заполняться автоматически после интеграции с базой данных учёта рабочего времени.
     </div>
     <div class="edit-modal-btns">
       <button class="btn btn-outline" onclick="closeAutoFill()">Отмена</button>
-      <button class="btn" style="background:#e8f5e9;color:#1a6b2e;border:1.5px solid #a5d6a7;font-weight:600" onclick="afLoadPreview()">🔍 Показать сотрудников</button>
       <button class="btn btn-navy" onclick="afApply()">⚡ Заполнить форму</button>
     </div>
   </div>
@@ -1860,16 +1889,20 @@ function saveEditS(){
 }
 function autoFillT(){
   const isAdmin=user?.role==='admin'||isHQ();
-  // Предустановить прошлый месяц
   const now=new Date();
-  let pm=now.getMonth(); // 0-based → прошлый месяц (1-based = текущий-1)
-  let py=now.getFullYear();
+  // Источник — прошлый месяц
+  let pm=now.getMonth(); let py=now.getFullYear();
   if(pm===0){pm=12;py--;}
+  // Назначение — текущий месяц
+  const cm=now.getMonth()+1; const cy=now.getFullYear();
   const afM=document.getElementById('afMonth');
   const afY=document.getElementById('afYear');
+  const afTM=document.getElementById('afTargetMonth');
+  const afTY=document.getElementById('afTargetYear');
   afM.value=pm;
-  // Установить год если есть такая опция
   if([...afY.options].some(o=>o.value===String(py)))afY.value=py;
+  afTM.value=cm;
+  if([...afTY.options].some(o=>o.value===String(cy)))afTY.value=cy;
   // Регион для администратора
   const regWrap=document.getElementById('afRegionWrap');
   const regSel=document.getElementById('afRegion');
@@ -1880,11 +1913,8 @@ function autoFillT(){
   } else {
     regWrap.style.display='none';
   }
-  // Сбросить превью
-  document.getElementById('afPreview').style.display='none';
-  document.getElementById('afEmpty').style.display='none';
-  document.getElementById('afPreviewBody').innerHTML='';
   document.getElementById('autoFillModal').style.display='flex';
+  afLoadPreview();
 }
 function closeAutoFill(){document.getElementById('autoFillModal').style.display='none';}
 function afGetRegion(){
@@ -1957,27 +1987,31 @@ function afLoadPreview(){
   window._afPickList={list,month,year,pickMode:false};
   afRenderList(false);
 }
+function afFillForm(r){
+  const tMonth=document.getElementById('afTargetMonth').value;
+  const tYear=document.getElementById('afTargetYear').value;
+  if(r.fio)document.getElementById('tFio').value=r.fio;
+  if(r.tab)document.getElementById('tTab').value=r.tab;
+  if(r.pos)document.getElementById('tPos').value=r.pos;
+  if(r.fuel)document.getElementById('tFuel').value=r.fuel;
+  const wwEl=document.querySelector(`input[name="tWW"][value="${r.ww}"]`);
+  if(wwEl){wwEl.checked=true;}
+  // Устанавливаем целевой период
+  const mEl=document.getElementById('tMonth');const yEl=document.getElementById('tYear');
+  if(mEl)mEl.value=tMonth;
+  if(yEl&&[...yEl.options].some(o=>o.value===tYear))yEl.value=tYear;
+  closeAutoFill();
+  toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
+}
 function afApply(){
-  const month=document.getElementById('afMonth').value;
-  const year=document.getElementById('afYear').value;
-  // Используем список если уже загружен, иначе строим заново
   let list=window._afPickList?.list;
-  if(!list){list=afBuildList();window._afPickList={list,month,year,pickMode:false};}
+  if(!list){list=afBuildList();window._afPickList={list,pickMode:false};}
   if(!list.length){toast('Нет данных за выбранный период','err');return;}
   if(list.length===1){
-    const r=list[0];
-    if(r.fio)document.getElementById('tFio').value=r.fio;
-    if(r.tab)document.getElementById('tTab').value=r.tab;
-    if(r.pos)document.getElementById('tPos').value=r.pos;
-    if(r.fuel)document.getElementById('tFuel').value=r.fuel;
-    const wwEl=document.querySelector(`input[name="tWW"][value="${r.ww}"]`);
-    if(wwEl){wwEl.checked=true;}
-    closeAutoFill();
-    toast('✓ Данные заполнены из '+MONTHS[+month]+' '+year,'ok');
+    afFillForm(list[0]);
   } else {
-    window._afPickList={list,month,year,pickMode:true};
+    window._afPickList.pickMode=true;
     afRenderList(true);
-    document.getElementById('afPreview').style.display='';
     toast('Нажмите на строку сотрудника для заполнения формы','ok');
   }
 }
@@ -1988,17 +2022,9 @@ function afShowPickList(uniq,month,year){
   document.getElementById('afEmpty').style.display='none';
 }
 function afPickEmployee(idx){
-  const {list,month,year}=window._afPickList||{};
+  const {list}=window._afPickList||{};
   if(!list||!list[idx])return;
-  const r=list[idx];
-  if(r.fio)document.getElementById('tFio').value=r.fio;
-  if(r.tab)document.getElementById('tTab').value=r.tab;
-  if(r.pos)document.getElementById('tPos').value=r.pos;
-  if(r.fuel)document.getElementById('tFuel').value=r.fuel;
-  const wwEl=document.querySelector(`input[name="tWW"][value="${r.ww}"]`);
-  if(wwEl){wwEl.checked=true;}
-  closeAutoFill();
-  toast('✓ Данные заполнены: '+r.fio+' из '+MONTHS[+month]+' '+year,'ok');
+  afFillForm(list[idx]);
 }
 function clearTForm(){
   document.getElementById('formT').reset();
