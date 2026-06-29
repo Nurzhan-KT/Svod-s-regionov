@@ -233,7 +233,7 @@ th.col-frozen{position:sticky;z-index:3}
       <select id="lRole" onchange="onLoginRoleChange()">
         <option value="">— Выберите роль —</option>
         <option value="transport" id="optTransport">Ответственный по автотранспорту</option>
-        <option value="inventory" id="optInventory">Материально-ответственное лицо (МОЛ)</option>
+        <option value="regionhead" id="optRegionHead">Региональный руководитель</option>
         <option value="admin" id="optAdmin" style="display:none">Администратор / Сводная отчётность</option>
       </select>
     </div>
@@ -266,7 +266,6 @@ th.col-frozen{position:sticky;z-index:3}
 <nav class="tabbar" id="tabbar" style="display:none">
   <button class="tabbtn active" id="tabT" onclick="switchTab('T')"><span class="tabico">🚗</span><span>Личный автотранспорт</span></button>
   <button class="tabbtn" id="tabS" onclick="switchTab('S')"><span class="tabico">🚐</span><span>Служебный автотранспорт</span></button>
-  <button class="tabbtn" id="tabI" onclick="switchTab('I')"><span class="tabico">📦</span><span>Фактические остатки ТМЗ</span></button>
 </nav>
 
 <!-- CONTENT -->
@@ -493,6 +492,8 @@ th.col-frozen{position:sticky;z-index:3}
             <option value="2024">2024</option><option value="2025">2025</option>
             <option value="2026">2026</option><option value="2027">2027</option>
           </select>
+          <button class="btn" id="btnSendApprovalT" style="display:none;background:#e0ecff;color:#1d4ed8;border:1.5px solid #93c5fd;font-weight:600" onclick="sendForApproval('transport','periodMonthT','periodYearT')">📨 Отправить на согласование</button>
+          <button class="btn" id="btnApproveT" style="display:none;background:#dcfce7;color:#15803d;border:1.5px solid #86efac;font-weight:600" onclick="approveApproval('transport','periodMonthT','periodYearT')">✅ Согласовать</button>
           <button class="btn btn-green" onclick="exportT()">📥 Выгрузить в Excel</button>
           <span class="toggle-chevron" id="chevronSumT">▼</span>
         </div>
@@ -738,6 +739,8 @@ th.col-frozen{position:sticky;z-index:3}
             <option value="2024">2024</option><option value="2025">2025</option>
             <option value="2026">2026</option><option value="2027">2027</option>
           </select>
+          <button class="btn" id="btnSendApprovalS" style="display:none;background:#e0ecff;color:#1d4ed8;border:1.5px solid #93c5fd;font-weight:600" onclick="sendForApproval('service','periodMonthS','periodYearS')">📨 Отправить на согласование</button>
+          <button class="btn" id="btnApproveS" style="display:none;background:#dcfce7;color:#15803d;border:1.5px solid #86efac;font-weight:600" onclick="approveApproval('service','periodMonthS','periodYearS')">✅ Согласовать</button>
           <button class="btn btn-green" onclick="exportS()">📥 Выгрузить в Excel</button>
           <span class="toggle-chevron" id="chevronSumS">▼</span>
         </div>
@@ -756,138 +759,6 @@ th.col-frozen{position:sticky;z-index:3}
             </thead>
             <tbody id="tbS">
               <tr><td colspan="17"><div class="et"><div class="ei">📂</div>Данных нет — заполните форму выше</div></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ INVENTORY ═══ -->
-  <section class="sec" id="secI">
-    <div class="sthdr">
-      <div class="strow">
-        <div class="sttitle">📊 Статус заполнения — Фактические остатки ТМЗ</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <select id="stMonthI" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
-            <option value="all">Все месяцы</option>
-            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
-            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
-            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
-            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
-          </select>
-          <select id="stYearI" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
-            <option value="all">Все годы</option>
-            <option value="2024">2024</option><option value="2025">2025</option>
-            <option value="2026">2026</option><option value="2027">2027</option>
-          </select>
-        </div>
-      </div>
-      <div class="stgrid" id="stI"></div>
-    </div>
-    <div class="card">
-      <div class="cardhd">
-        <div class="cardhd-l"><span>➕</span><span>Добавить запись — Остатки оборудования</span></div>
-        <button class="btn btn-ghost btn-sm" onclick="clearIForm()">Очистить</button>
-      </div>
-      <div class="cardbody">
-        <form id="formI" onsubmit="submitI(event)">
-          <div class="fgrid">
-            <div class="ff">
-              <label>Месяц отчётности *</label>
-              <select id="iMonth" required>
-                <option value="">— Месяц —</option>
-                <option value="1">Январь</option><option value="2">Февраль</option>
-                <option value="3">Март</option><option value="4">Апрель</option>
-                <option value="5">Май</option><option value="6">Июнь</option>
-                <option value="7">Июль</option><option value="8">Август</option>
-                <option value="9">Сентябрь</option><option value="10">Октябрь</option>
-                <option value="11">Ноябрь</option><option value="12">Декабрь</option>
-              </select>
-            </div>
-            <div class="ff">
-              <label>Год отчётности *</label>
-              <select id="iYear" required>
-                <option value="">— Год —</option>
-                <option value="2024">2024</option><option value="2025">2025</option>
-                <option value="2026">2026</option><option value="2027">2027</option>
-              </select>
-            </div>
-            <div class="ff">
-              <label>Регион *</label>
-              <select id="iReg" required onchange="fillICities()">
-                <option value="">— Выберите регион —</option>
-              </select>
-              <div id="iRegStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
-            </div>
-            <div class="ff">
-              <label id="iCityLabel">Город *</label>
-              <select id="iCity" required><option value="">— Сначала выберите регион —</option></select>
-            </div>
-            <div class="ff" id="iLocationWrap" style="display:none">
-              <label>Местонахождение</label>
-              <input id="iLocation" placeholder="Введите местонахождение" />
-            </div>
-            <div class="ff">
-              <label>ФИО МОЛ *</label>
-              <input id="iMol" placeholder="Фамилия Имя Отчество" required />
-            </div>
-            <div class="ff">
-              <label>Наименование оборудования *</label>
-              <input id="iEquip" placeholder="Введите наименование" required />
-            </div>
-            <div class="ff">
-              <label>Количество новые *</label>
-              <input type="number" id="iQtyNew" min="0" placeholder="0" required />
-            </div>
-            <div class="ff">
-              <label>Количество б/у *</label>
-              <input type="number" id="iQtyUsed" min="0" placeholder="0" required />
-            </div>
-          </div>
-          <div class="btns">
-            <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
-            <button type="button" class="btn btn-outline" onclick="clearIForm()">Очистить форму</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    <div class="card">
-      <div class="cardhd">
-        <div class="cardhd-l">
-          <span>📋</span><span>Сводная таблица — Остатки ТМЗ</span>
-          <span class="cntbadge" id="cntI">0 зап.</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span class="export-note" id="exportNoteI"></span>
-          <select id="viewFilterI" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
-            <option value="all">Все регионы</option>
-          </select>
-          <select id="periodMonthI" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
-            <option value="all">Все месяцы</option>
-            <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
-            <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
-            <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
-            <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
-          </select>
-          <select id="periodYearI" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderI()">
-            <option value="all">Все годы</option>
-            <option value="2024">2024</option><option value="2025">2025</option>
-            <option value="2026">2026</option><option value="2027">2027</option>
-          </select>
-          <button class="btn btn-green" onclick="exportI()">📥 Выгрузить в Excel</button>
-        </div>
-      </div>
-      <div class="cardbody">
-        <div class="twrap">
-          <table class="dt">
-            <thead><tr>
-              <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th><th>ФИО МОЛ</th>
-              <th>Наименование оборудования</th><th>Кол-во новые</th><th>Кол-во б/у</th>
-              <th>Внёс</th><th>Дата</th><th></th>
-            </tr></thead>
-            <tbody id="tbI">
-              <tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1283,7 +1154,6 @@ const DRB_GEO=['ЦРУ Центрального региона','ЦРУ Южно
 const DRB_REGIONS_NEW=[...DRB_GEO,'ДРТР'];
 const RT=[...DRB_GEO,'ДРТР','СТиОУП'];
 const RS=[...DRB_GEO,'ДРТР'];
-const RI=[...DRB_GEO,'СТиОУП'];
 // Лимиты личного автотранспорта (ДРБ)
 const LIMITS={'ЦРУ Западного региона':38,'ЦРУ Северного региона':20,'ЦРУ Восточного региона':31,'ЦРУ Центрального региона':86,'ЦРУ Алматинского региона':62,'ЦРУ Южного региона':27,'ДРТР':15,'СТиОУП':1,'Запад':38,'Север':20,'Восток':31,'Центр':86,'Алматы':62,'Юг':27};
 // Лимиты служебного автотранспорта (ДРБ)
@@ -1296,10 +1166,11 @@ const STAT_POS=new Set(['Инженер*(МОЛ)','Начальник цеха',
 function staffType(pos){return FIELD_POS.has(pos)?'field':STAT_POS.has(pos)?'stationary':null}
 
 // ── STATE ──
-let user=null, tData=[], sData=[], iData=[], changesData=[], tariffs={}, tariffsS={};
-let _unsubT=null,_unsubS=null,_unsubI=null,_unsubTariffs=null,_unsubTariffsS=null,_unsubChanges=null;
+let user=null, tData=[], sData=[], changesData=[], approvalsData=[], tariffs={}, tariffsS={};
+let _unsubT=null,_unsubS=null,_unsubTariffs=null,_unsubTariffsS=null,_unsubChanges=null,_unsubApprovals=null;
 
 function isHQ(){return user&&user.region==='HQ'}
+function isFieldRole(role){return role==='transport'||role==='regionhead'}
 function isRipsAdmin(){return isHQ()&&user.role==='admin'}
 function periodLabel(m,y){return MONTHS[+m]+' '+y}
 function getRate(pos,fuel,ww){const st=staffType(pos);if(!st)return 0;return Number(tariffs[st]?.[fuel]?.[ww]||0)}
@@ -1310,12 +1181,16 @@ function setupListeners(){
   // Отписаться от старых слушателей если есть
   if(_unsubT)_unsubT();
   if(_unsubS)_unsubS();
-  if(_unsubI)_unsubI();
   if(_unsubTariffs)_unsubTariffs();
 
   if(_unsubChanges)_unsubChanges();
   _unsubChanges=db.collection('changes').orderBy('ts','desc').onSnapshot(snap=>{
     changesData=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(user){renderT();renderS();}
+  });
+  if(_unsubApprovals)_unsubApprovals();
+  _unsubApprovals=db.collection('approvals').onSnapshot(snap=>{
+    approvalsData=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(user){renderT();renderS();}
   });
   _unsubT=db.collection('transport').onSnapshot(snap=>{
@@ -1325,10 +1200,6 @@ function setupListeners(){
   _unsubS=db.collection('service').onSnapshot(snap=>{
     sData=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(user){renderS();renderDrbS();renderStatus();}
-  });
-  _unsubI=db.collection('inventory').onSnapshot(snap=>{
-    iData=snap.docs.map(d=>({id:d.id,...d.data()}));
-    if(user){renderI();renderStatus();}
   });
   _unsubTariffs=db.doc('settings/tariffs').onSnapshot(doc=>{
     tariffs=doc.exists?doc.data():{};
@@ -1361,11 +1232,11 @@ function doLogout(){
   if(!confirm('Выйти?'))return;
   if(_unsubT)_unsubT();
   if(_unsubS)_unsubS();
-  if(_unsubI)_unsubI();
   if(_unsubTariffs)_unsubTariffs();
   if(_unsubChanges)_unsubChanges();
+  if(_unsubApprovals)_unsubApprovals();
   localStorage.removeItem('kt_user');user=null;
-  tData=[];sData=[];iData=[];changesData=[];tariffs={};
+  tData=[];sData=[];changesData=[];approvalsData=[];tariffs={};
   document.getElementById('loginModal').style.display='flex';
   ['appHdr','tabbar','mainContent'].forEach(i=>document.getElementById(i).style.display='none');
 }
@@ -1389,6 +1260,12 @@ function showApp(){
   document.getElementById('btnTariff').style.display=showTariffBtn?'inline-flex':'none';
   document.getElementById('btnTariffS').style.display=showTariffBtn?'inline-flex':'none';
 
+  // Кнопки согласования
+  const showSend=user.role==='transport';
+  const showApprove=user.role==='regionhead';
+  ['btnSendApprovalT','btnSendApprovalS'].forEach(id=>{document.getElementById(id).style.display=showSend?'inline-flex':'none';});
+  ['btnApproveT','btnApproveS'].forEach(id=>{document.getElementById(id).style.display=showApprove?'inline-flex':'none';});
+
   // Должность "Эксперт" — только для администратора
   const showExpert=user.role==='admin';
   ['optExpertT','optExpertS'].forEach(id=>{
@@ -1396,22 +1273,13 @@ function showApp(){
     if(el)el.style.display=showExpert?'':'none';
   });
 
-  // Вкладки автотранспорта: для ответственных по автотранспорту и администратора
-  const showT=user.role!=='inventory';
-  const showS=user.role!=='inventory';
-  const showI=user.role!=='transport';
-  document.getElementById('tabT').style.display=showT?'':'none';
-  document.getElementById('tabS').style.display=showS?'':'none';
-  document.getElementById('tabI').style.display=showI?'':'none';
   const savedTab=localStorage.getItem('kt_tab');
-  if(!showT){switchTab('I')}
-  else if(savedTab==='S'&&showS){switchTab('S')}
-  else if(savedTab==='I'&&showI){switchTab('I')}
+  if(savedTab==='S'){switchTab('S')}
   else{switchTab('T')}
 
   const isAdmin=user.role==='admin'||isHQ();
-  const isDRTRTransport=user.region==='ДРТР'&&user.role==='transport';
-  const isStioupTransport=user.region==='СТиОУП'&&user.role==='transport';
+  const isDRTRTransport=user.region==='ДРТР'&&isFieldRole(user.role);
+  const isStioupTransport=user.region==='СТиОУП'&&isFieldRole(user.role);
   const isDeptTransport=isDRTRTransport||isStioupTransport;
   const isDRB=!user.branch||user.branch==='ДРБ';
   // Гео-регионы ДРБ (новые имена) — без ДРТР/СТиОУП (используем глобальный DRB_GEO)
@@ -1432,18 +1300,6 @@ function showApp(){
   }
   populateRegSelect('tReg');
   populateRegSelect('sReg');
-  // iReg — для ТМЗ (ДРБ использует RI, остальные как tReg)
-  (function(){
-    const sel=document.getElementById('iReg');
-    sel.innerHTML='<option value="">— Выберите регион —</option>';
-    if(isDRB){
-      RI.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=dispReg(r);sel.appendChild(o);});
-    } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
-      KAZ_OBLASTS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
-    } else if(user.branch==='Сеть'){
-      SET_REGIONS.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
-    }
-  })();
 
   // Личный авто: регион
   if(isAdmin||isDeptTransport){
@@ -1476,28 +1332,14 @@ function showApp(){
     fillSCities();
   }
 
-  // ТМЗ: регион
-  if(isAdmin){
-    document.getElementById('iReg').style.display='';
-    document.getElementById('iRegStatic').style.display='none';
-    if(isDRB&&RI.includes(user.region)){document.getElementById('iReg').value=user.region;fillICities()}
-  } else {
-    document.getElementById('iReg').style.display='none';
-    document.getElementById('iReg').removeAttribute('required');
-    const si=document.getElementById('iRegStatic');
-    si.style.display='';si.textContent=user.region;
-    document.getElementById('iReg').value=user.region;
-    fillICities();
-  }
-
   const now=new Date(),m=now.getMonth()+1,y=now.getFullYear().toString();
-  ['tMonth','sMonth','iMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
-  ['tYear','sYear','iYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
+  ['tMonth','sMonth'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m});
+  ['tYear','sYear'].forEach(id=>{const el=document.getElementById(id);if(el&&[...el.options].some(o=>o.value===y))el.value=y});
   updateWdHint();updateWdHintS();
 
   // Фильтры по регионам — только для РИПС/Администратор
   const showFilter=isRipsAdmin();
-  ['viewFilterT','viewFilterS','viewFilterI'].forEach(id=>{
+  ['viewFilterT','viewFilterS'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display='none';
   });
@@ -1506,7 +1348,6 @@ function showApp(){
     const rtDisp=[...DRB_REGIONS_NEW,'СТиОУП'];
     setupViewFilter('viewFilterT', rtDisp);
     setupViewFilter('viewFilterS', [...DRB_REGIONS_NEW]);
-    setupViewFilter('viewFilterI', [...DRB_REGIONS_NEW,'СТиОУП']);
   }
 
   // Показать/скрыть блок статуса уволен/переведён (только ДРБ)
@@ -1528,18 +1369,17 @@ function showApp(){
   updateExportNotes();
   rebuildTHead();
   rebuildSHead();
-  renderT();renderS();renderI();renderStatus();renderDrb();renderDrbS();
+  renderT();renderS();renderStatus();renderDrb();renderDrbS();
 }
 function updateExportNotes(){
   const note=isHQ()?'Выгрузка: все регионы + расчёт выплат':'Выгрузка: только ваш регион';
   document.getElementById('exportNoteT').textContent=note;
   document.getElementById('exportNoteS').textContent=isHQ()?'Выгрузка: все регионы':'Выгрузка: только ваш регион';
-  document.getElementById('exportNoteI').textContent=note;
 }
 
 // ── TABS ──
 function switchTab(t){
-  ['T','S','I'].forEach(x=>{
+  ['T','S'].forEach(x=>{
     const sec=document.getElementById('sec'+x);
     const tab=document.getElementById('tab'+x);
     if(sec)sec.classList.toggle('active',x===t);
@@ -1670,8 +1510,8 @@ function buildCitySelect(sel, region, isAdmin, depts){
 }
 
 function fillTCities(){
-  const isDRTRUser=user?.region==='ДРТР'&&user?.role==='transport';
-  const isStioupUser=user?.region==='СТиОУП'&&user?.role==='transport';
+  const isDRTRUser=user?.region==='ДРТР'&&isFieldRole(user?.role);
+  const isStioupUser=user?.region==='СТиОУП'&&isFieldRole(user?.role);
   const isAdmin=user?.role==='admin';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
   const reg=document.getElementById('tReg').value;
@@ -1702,8 +1542,8 @@ function fillTCities(){
 }
 
 function fillSCities(){
-  const isDRTRUser=user?.region==='ДРТР'&&user?.role==='transport';
-  const isStioupUser=user?.region==='СТиОУП'&&user?.role==='transport';
+  const isDRTRUser=user?.region==='ДРТР'&&isFieldRole(user?.role);
+  const isStioupUser=user?.region==='СТиОУП'&&isFieldRole(user?.role);
   const isAdmin=user?.role==='admin';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
   const reg=document.getElementById('sReg').value;
@@ -1732,24 +1572,12 @@ function fillSCities(){
   document.getElementById('sLocationWrap').style.display=reg?'flex':'none';
 }
 
-function fillICities(){
-  const reg=document.getElementById('iReg').value;
-  const sel=document.getElementById('iCity');
-  sel.innerHTML='';
-  if(!reg||!CITIES[reg]){sel.innerHTML='<option value="">— Сначала выберите регион —</option>';}
-  else{
-    const def=document.createElement('option');def.value='';def.textContent='— Выберите город —';sel.appendChild(def);
-    CITIES[reg].forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o)});
-  }
-  document.getElementById('iLocationWrap').style.display=reg?'flex':'none';
-}
-
 // ── ЛИЧНЫЙ АВТОТРАНСПОРТ ──
 function submitT(e){
   e.preventDefault();
   const ww=document.querySelector('input[name="tWW"]:checked');
   if(!ww){toast('Выберите рабочую неделю','err');return}
-  const isDRTRUser=user.region==='ДРТР'&&user.role==='transport';
+  const isDRTRUser=user.region==='ДРТР'&&isFieldRole(user.role);
   const isDRBBranch=!user.branch||user.branch==='ДРБ';
   let region=document.getElementById('tReg').value;
   let city;
@@ -2282,6 +2110,38 @@ function recEffectiveRegion(r){
   if(DEPT_REGIONS.has(r.city)) return r.city;
   return recRegNorm(r);
 }
+
+// ── СОГЛАСОВАНИЕ ──
+function approvalId(kind,region,month,year){return kind+'_'+region+'_'+month+'_'+year;}
+function getApproval(kind,region,month,year){
+  return approvalsData.find(a=>a.kind===kind&&a.region===region&&String(a.month)===String(month)&&String(a.year)===String(year));
+}
+function approvalLabel(r,kind){
+  const region=recEffectiveRegion(r);
+  const a=getApproval(kind,region,r.month,r.year);
+  if(a&&a.status==='approved')return'Согласовано: '+a.approvedBy+', '+a.approvedAt;
+  return'Не согласовано';
+}
+function sendForApproval(kind,monthId,yearId){
+  const month=document.getElementById(monthId).value;
+  const year=document.getElementById(yearId).value;
+  if(month==='all'||year==='all'){toast('Выберите конкретный месяц и год для отправки','err');return}
+  const region=user.region;
+  const id=approvalId(kind,region,month,year);
+  db.collection('approvals').doc(id).set({kind,region,month,year,status:'pending',sentBy:user.fio,sentAt:new Date().toLocaleString('ru-KZ')},{merge:true})
+    .then(()=>toast('✓ Отправлено на согласование региональному руководителю','ok'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
+}
+function approveApproval(kind,monthId,yearId){
+  const month=document.getElementById(monthId).value;
+  const year=document.getElementById(yearId).value;
+  if(month==='all'||year==='all'){toast('Выберите конкретный месяц и год для согласования','err');return}
+  const region=user.region;
+  const id=approvalId(kind,region,month,year);
+  db.collection('approvals').doc(id).set({kind,region,month,year,status:'approved',approvedBy:user.fio,approvedAt:new Date().toLocaleString('ru-KZ')},{merge:true})
+    .then(()=>toast('✓ Согласовано','ok'))
+    .catch(e=>toast('Ошибка: '+e.message,'err'));
+}
 function onRegionFilterChange(regionSelId, citySelId){
   const reg=document.getElementById(regionSelId)?.value;
   const citySel=document.getElementById(citySelId);
@@ -2359,13 +2219,13 @@ function exportT(){
   const showPayout=hasTariffs();
   const rows=getFilteredRows(tData,'viewFilterT','periodMonthT','periodYearT','statusFilterT','cityFilterT');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
-  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Статус','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
-  const colW=[4,14,8,18,16,22,28,14,12,30,14,14,12,14,28,24,18];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Статус','Табельный №','Должность','Вид топлива','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения','Согласование'];
+  const colW=[4,14,8,18,16,22,28,14,12,30,14,14,12,14,28,24,18,32];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
   const statusLabel=r=>r.dismissed?'Уволен':r.transferred?'Переведен':'Действующий';
   let totalPayout=0;
   const dataRows=rows.map((r,i)=>{
-    const base=[i+1,MONTHS[+r.month],r.year,dispReg(r.region),r.city,r.location||'',r.fio,statusLabel(r),r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
+    const base=[i+1,MONTHS[+r.month],r.year,dispReg(r.region),r.city,r.location||'',r.fio,statusLabel(r),r.tab,r.pos,r.fuel,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts,approvalLabel(r,'transport')];
     if(showPayout){
       const rate=getRate(r.pos,r.fuel,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
@@ -2397,7 +2257,7 @@ function submitS(e){
   e.preventDefault();
   const ww=document.querySelector('input[name="sWW"]:checked');
   if(!ww){toast('Выберите рабочую неделю','err');return}
-  const isDRTRUser=user.region==='ДРТР'&&user.role==='transport';
+  const isDRTRUser=user.region==='ДРТР'&&isFieldRole(user.role);
   const isDRBBranchS=!user.branch||user.branch==='ДРБ';
   let region=document.getElementById('sReg').value;
   let city;
@@ -2656,12 +2516,12 @@ function exportS(){
   const showPayout=hasTariffsS();
   const rows=getFilteredRows(sData,'viewFilterS','periodMonthS','periodYearS',null,'cityFilterS');
   if(!rows.length){toast('Нет данных для выгрузки','err');return}
-  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения'];
-  const colW=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18];
+  const headers=['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО водителя','Табельный №','Должность','Марка автомобиля','Номер автомобиля','Рабочая неделя','Дней отработано','Дней командировки','Примечание','Кто вносил данные','Дата внесения','Согласование'];
+  const colW=[4,14,8,12,16,22,28,12,30,20,16,14,12,14,28,24,18,32];
   if(showPayout){headers.push('Тариф (₸)','Норма раб. дней','Сумма к выплате (₸)');colW.push(14,14,20)}
   let totalPayoutS=0;
   const dataRowsS=rows.map((r,i)=>{
-    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts];
+    const base=[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.fio,r.tab,r.pos,r.car,r.carNum,r.ww+'-дневная',r.days,r.tripDays||0,r.note||'',r.by,r.ts,approvalLabel(r,'service')];
     if(showPayout){
       const rate=getRateS(r.pos,r.ww);
       const norm=calcWorkDays(r.month,r.year,r.ww)||1;
@@ -2687,87 +2547,6 @@ function exportS(){
   toast('📥 Файл сохранён','ok');
 }
 
-// ── INVENTORY ──
-function submitI(e){
-  e.preventDefault();
-  const rec={
-    ts:new Date().toLocaleString('ru-KZ'),by:user.fio,
-    branch:user.branch||'ДРБ',
-    month:document.getElementById('iMonth').value,
-    year:document.getElementById('iYear').value,
-    region:document.getElementById('iReg').value,
-    city:document.getElementById('iCity').value,
-    location:document.getElementById('iLocation').value.trim(),
-    mol:document.getElementById('iMol').value.trim(),
-    equip:document.getElementById('iEquip').value.trim(),
-    qtyNew:parseInt(document.getElementById('iQtyNew').value)||0,
-    qtyUsed:parseInt(document.getElementById('iQtyUsed').value)||0
-  };
-  const sv={month:rec.month,year:rec.year,reg:rec.region,city:rec.city,mol:rec.mol};
-  db.collection('inventory').add(rec).then(()=>{
-    document.getElementById('formI').reset();
-    document.getElementById('iMonth').value=sv.month;
-    document.getElementById('iYear').value=sv.year;
-    document.getElementById('iReg').value=sv.reg;fillICities();
-    document.getElementById('iCity').value=sv.city;
-    document.getElementById('iMol').value=sv.mol;
-    toast('✓ Запись добавлена','ok');
-  }).catch(e=>toast('Ошибка: '+e.message,'err'));
-}
-function delI(id){
-  if(!confirm('Удалить эту запись?'))return;
-  db.collection('inventory').doc(id).delete()
-    .then(()=>toast('Запись удалена','info'))
-    .catch(e=>toast('Ошибка: '+e.message,'err'));
-}
-function clearIForm(){
-  document.getElementById('formI').reset();
-  document.getElementById('iCity').innerHTML='<option value="">— Сначала выберите регион —</option>';
-  document.getElementById('iLocation').value='';
-  if(RI.includes(user?.region)){document.getElementById('iReg').value=user.region;fillICities()}
-  const now=new Date(),y=now.getFullYear().toString();
-  document.getElementById('iMonth').value=now.getMonth()+1;
-  const yEl=document.getElementById('iYear');
-  if([...yEl.options].some(o=>o.value===y))yEl.value=y;
-}
-function renderI(){
-  const rows=getFilteredRows(iData,'viewFilterI','periodMonthI','periodYearI');
-  document.getElementById('cntI').textContent=rows.length+' зап.';
-  const tb=document.getElementById('tbI');
-  if(!rows.length){tb.innerHTML='<tr><td colspan="12"><div class="et"><div class="ei">📦</div>Данных нет — заполните форму выше</div></td></tr>';return}
-  tb.innerHTML=rows.map((r,i)=>`
-    <tr>
-      <td>${i+1}</td>
-      <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
-      <td><span class="badge badge-b">${dispReg(r.region)}</span></td>
-      <td>${r.city}</td>
-      <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
-      <td>${r.mol}</td>
-      <td>${r.equip}</td>
-      <td style="text-align:center;font-weight:600">${r.qtyNew??r.qty??0}</td>
-      <td style="text-align:center;font-weight:600">${r.qtyUsed??0}</td>
-      <td style="font-size:12px">${r.by}</td>
-      <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
-      <td><button class="btn btn-red btn-sm" onclick="delI('${r.id}')">✕</button></td>
-    </tr>`).join('');
-}
-function exportI(){
-  const rows=getFilteredRows(iData,'viewFilterI','periodMonthI','periodYearI');
-  if(!rows.length){toast('Нет данных для выгрузки','err');return}
-  const sheet=[
-    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование оборудования','Кол-во новые','Кол-во б/у','Кто вносил данные','Дата внесения'],
-    ...rows.map((r,i)=>[i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.mol,r.equip,r.qtyNew??r.qty??0,r.qtyUsed??0,r.by,r.ts])
-  ];
-  const ws=XLSX.utils.aoa_to_sheet(sheet);
-  ws['!cols']=[4,14,8,12,16,22,28,38,13,13,24,18].map(w=>({wch:w}));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Фактические остатки');
-  const vfI=getViewFilter('viewFilterI');
-  const suf=vfI!=='all'?vfI:isHQ()?'все_регионы':user.region;
-  XLSX.writeFile(wb,'КТ_Фактические_остатки_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast('📥 Файл сохранён','ok');
-}
-
 // ── STATUS ──
 function filterByPeriod(data, monthId, yearId){
   const pm=document.getElementById(monthId)?.value||'all';
@@ -2778,12 +2557,11 @@ function filterByPeriod(data, monthId, yearId){
   );
 }
 function getBranchRegions(type){
-  // type: 'T','S','I'
+  // type: 'T','S'
   const b=user?.branch||'ДРБ';
   if(b==='ДРБ'){
     if(type==='T')return isRipsAdmin()?RT:RT.filter(r=>r!=='СТиОУП');
     if(type==='S')return RS;
-    if(type==='I')return RI;
   }
   if(b==='ДКБ'||b==='ДУП') return KAZ_OBLASTS;
   if(b==='Сеть') return SET_REGIONS;
@@ -2803,10 +2581,8 @@ function filterByBranchAndPeriod(data,monthId,yearId){
 function renderStatus(){
   const tRegions=getBranchRegions('T');
   const sRegions=getBranchRegions('S');
-  const iRegions=getBranchRegions('I');
   const tRows=filterByBranchAndPeriod(tData,'stMonthT','stYearT');
   const sRows=filterByBranchAndPeriod(sData,'stMonthS','stYearS');
-  const iRows=filterByBranchAndPeriod(iData,'stMonthI','stYearI');
   // Для статусной панели нормализуем имена регионов;
   // если city = ДРТР/СТиОУП — учитывать запись в этом подразделении
   function normRegForStatus(r){
@@ -2817,7 +2593,6 @@ function renderStatus(){
   const sRowsNorm=sRows.map(r=>({...r,region:normRegForStatus(r)}));
   renderStatusPanel('stT',tRegions,tRowsNorm,true,LIMITS);
   renderStatusPanel('stS',sRegions,sRowsNorm,true,LIMITS_S);
-  renderStatusPanel('stI',iRegions,iRows,false,null);
 }
 function renderStatusPanel(cid,regions,data,showLimits,limitsObj){
   document.getElementById(cid).innerHTML=regions.map(reg=>{
@@ -2907,7 +2682,7 @@ function onLoginBranchChange(){
   const regSel=document.getElementById('lRegion');
   regSel.innerHTML='<option value="">— Выберите регион —</option>';
   document.getElementById('lRole').value='';
-  ['optTransport','optInventory','optAdmin'].forEach(id=>{
+  ['optTransport','optRegionHead','optAdmin'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
   if(branch==='ДРБ'){
@@ -2924,22 +2699,17 @@ function onLoginRegionChange(){
   const reg=document.getElementById('lRegion').value;
   const role=document.getElementById('lRole').value;
   const optTransport=document.getElementById('optTransport');
-  const optInv=document.getElementById('optInventory');
+  const optRegionHead=document.getElementById('optRegionHead');
   const optAdmin=document.getElementById('optAdmin');
   if(reg==='HQ'){
     optAdmin.style.display='';
     optTransport.style.display='none';
-    optInv.style.display='none';
+    optRegionHead.style.display='none';
     if(role!=='admin')document.getElementById('lRole').value='';
-  } else if(reg==='ДРТР'){
-    optAdmin.style.display='none';
-    optTransport.style.display='';
-    optInv.style.display='none';
-    if(role==='admin'||role==='inventory')document.getElementById('lRole').value='';
   } else if(reg){
     optAdmin.style.display='none';
     optTransport.style.display='';
-    optInv.style.display='';
+    optRegionHead.style.display='';
     if(role==='admin')document.getElementById('lRole').value='';
   }
 }
