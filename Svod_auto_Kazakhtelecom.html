@@ -1266,6 +1266,10 @@ function showApp(){
   ['btnSendApprovalT','btnSendApprovalS'].forEach(id=>{document.getElementById(id).style.display=showSend?'inline-flex':'none';});
   ['btnApproveT','btnApproveS'].forEach(id=>{document.getElementById(id).style.display=showApprove?'inline-flex':'none';});
 
+  // Региональный руководитель: только просмотр — без добавления/корректировки/удаления записей
+  const isReadOnly=user.role==='regionhead';
+  ['cardAddT','cardAddS'].forEach(id=>{document.getElementById(id).style.display=isReadOnly?'none':'';});
+
   // Должность "Эксперт" — только для администратора
   const showExpert=user.role==='admin';
   ['optExpertT','optExpertS'].forEach(id=>{
@@ -2077,8 +2081,8 @@ function renderT(){
       <td>${approvalCellHtml(r,'transport')}</td>
       ${payoutCells}
       <td style="white-space:nowrap;display:flex;gap:4px;padding:6px 8px">
-        <button class="btn btn-red btn-sm" onclick="delT('${r.id}')">🗑 Удалить</button>
-        <button class="btn btn-outline btn-sm" onclick="editT('${r.id}')">✏ Корректировка</button>
+        ${user.role==='regionhead'?'':`<button class="btn btn-red btn-sm" onclick="delT('${r.id}')">🗑 Удалить</button>
+        <button class="btn btn-outline btn-sm" onclick="editT('${r.id}')">✏ Корректировка</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -2508,8 +2512,8 @@ function renderS(){
       <td>${approvalCellHtml(r,'service')}</td>
       ${payoutCells}
       <td style="white-space:nowrap;display:flex;gap:4px;padding:6px 8px">
-        <button class="btn btn-red btn-sm" onclick="delS('${r.id}')">🗑 Удалить</button>
-        <button class="btn btn-outline btn-sm" onclick="editS('${r.id}')">✏ Корректировка</button>
+        ${user.role==='regionhead'?'':`<button class="btn btn-red btn-sm" onclick="delS('${r.id}')">🗑 Удалить</button>
+        <button class="btn btn-outline btn-sm" onclick="editS('${r.id}')">✏ Корректировка</button>`}
       </td>
     </tr>`;
   }).join('');
