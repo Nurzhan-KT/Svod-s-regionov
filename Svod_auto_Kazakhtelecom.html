@@ -95,6 +95,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 
 /* FORM */
 .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:15px;margin-bottom:16px}
+.fgrid5{display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-bottom:15px}
+.fgrid2{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-bottom:15px}
 .ff{display:flex;flex-direction:column;gap:5px}
 .ff.full{grid-column:1/-1}
 .ff label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
@@ -199,7 +201,7 @@ th.col-frozen{position:sticky;z-index:3}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
-@media(max-width:768px){.hdr,.tabbar,.content{padding-left:14px;padding-right:14px}.fgrid{grid-template-columns:1fr}}
+@media(max-width:768px){.hdr,.tabbar,.content{padding-left:14px;padding-right:14px}.fgrid,.fgrid5,.fgrid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -329,7 +331,8 @@ th.col-frozen{position:sticky;z-index:3}
       </div>
       <div class="cardbody">
         <form id="formT" onsubmit="submitT(event)">
-          <div class="fgrid">
+          <!-- Строка 1: Месяц, Год, Регион, Цех, Местонахождение -->
+          <div class="fgrid5">
             <div class="ff">
               <label>Месяц отчётности *</label>
               <select id="tMonth" required>
@@ -362,10 +365,13 @@ th.col-frozen{position:sticky;z-index:3}
               <select id="tCity" required><option value="">— Сначала выберите регион —</option></select>
               <div id="tCityStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)">ДРТР</div>
             </div>
-            <div class="ff" id="tLocationWrap" style="display:none">
+            <div class="ff" id="tLocationWrap" style="visibility:hidden">
               <label>Местонахождение</label>
               <input id="tLocation" placeholder="Введите местонахождение" />
             </div>
+          </div>
+          <!-- Строка 2: Табельный №, ФИО, Должность, Вид топлива, Рабочая неделя -->
+          <div class="fgrid5">
             <div class="ff">
               <label>Табельный номер *</label>
               <input id="tTab" placeholder="00000" required />
@@ -410,6 +416,9 @@ th.col-frozen{position:sticky;z-index:3}
                 <label class="ropt"><input type="radio" name="tWW" value="6"> 6-дневная</label>
               </div>
             </div>
+          </div>
+          <!-- Строка 3: Дней отработано, Дней командировки -->
+          <div class="fgrid2">
             <div class="ff">
               <label>Дней отработано *</label>
               <input type="number" id="tDays" min="0" max="31" placeholder="0" required />
@@ -419,6 +428,9 @@ th.col-frozen{position:sticky;z-index:3}
               <label>Дней командировки</label>
               <input type="number" id="tTripDays" min="0" max="31" placeholder="0" />
             </div>
+          </div>
+          <!-- Примечание и статус -->
+          <div class="fgrid">
             <div class="ff full">
               <label>Примечание</label>
               <textarea id="tNote" placeholder="Дополнительная информация..."></textarea>
@@ -1527,7 +1539,7 @@ function fillTCities(){
     citySelect.style.display='none'; citySelect.removeAttribute('required');
     cityStatic.style.display=''; cityStatic.textContent=dept;
     document.getElementById('tCityLabel').textContent='Цех';
-    document.getElementById('tLocationWrap').style.display='flex';
+    document.getElementById('tLocationWrap').style.visibility='visible';
     return;
   }
   // Для не-ДРБ филиалов: город = регион, скрыть select
@@ -1535,14 +1547,14 @@ function fillTCities(){
     citySelect.style.display='none'; citySelect.removeAttribute('required');
     cityStatic.style.display=''; cityStatic.textContent=reg||'—';
     document.getElementById('tCityLabel').textContent='Подразделение';
-    document.getElementById('tLocationWrap').style.display=reg?'flex':'none';
+    document.getElementById('tLocationWrap').style.visibility=reg?'visible':'hidden';
     return;
   }
   citySelect.style.display=''; citySelect.setAttribute('required','required');
   cityStatic.style.display='none';
   document.getElementById('tCityLabel').textContent='Цех *';
   buildCitySelect(citySelect, reg, isAdmin, isAdmin?['ДРТР','СТиОУП']:null);
-  document.getElementById('tLocationWrap').style.display=reg?'flex':'none';
+  document.getElementById('tLocationWrap').style.visibility=reg?'visible':'hidden';
 }
 
 function fillSCities(){
