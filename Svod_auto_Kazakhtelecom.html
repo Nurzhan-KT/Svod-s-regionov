@@ -365,7 +365,7 @@ th.col-frozen{position:sticky;z-index:3}
               <select id="tCity" required><option value="">— Сначала выберите регион —</option></select>
               <div id="tCityStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)">ДРТР</div>
             </div>
-            <div class="ff" id="tLocationWrap" style="visibility:hidden">
+            <div class="ff" id="tLocationWrap">
               <label>Местонахождение</label>
               <input id="tLocation" placeholder="Введите местонахождение" />
             </div>
@@ -1539,7 +1539,7 @@ function fillTCities(){
     citySelect.style.display='none'; citySelect.removeAttribute('required');
     cityStatic.style.display=''; cityStatic.textContent=dept;
     document.getElementById('tCityLabel').textContent='Цех';
-    document.getElementById('tLocationWrap').style.visibility='visible';
+    document.getElementById('tLocationWrap').style.visibility='';
     return;
   }
   // Для не-ДРБ филиалов: город = регион, скрыть select
@@ -1547,7 +1547,7 @@ function fillTCities(){
     citySelect.style.display='none'; citySelect.removeAttribute('required');
     cityStatic.style.display=''; cityStatic.textContent=reg||'—';
     document.getElementById('tCityLabel').textContent='Подразделение';
-    document.getElementById('tLocationWrap').style.visibility=reg?'visible':'hidden';
+    document.getElementById('tLocationWrap').style.visibility='';
     return;
   }
   citySelect.style.display=''; citySelect.setAttribute('required','required');
