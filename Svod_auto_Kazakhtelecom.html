@@ -1328,7 +1328,7 @@ function showApp(){
     document.getElementById('tReg').style.display='none';
     document.getElementById('tReg').removeAttribute('required');
     const st=document.getElementById('tRegStatic');
-    st.style.display='';st.textContent=user.region;
+    st.style.display='';st.textContent=dispReg(user.region);
     document.getElementById('tReg').value=user.region;
     fillTCities();
   }
@@ -1343,7 +1343,7 @@ function showApp(){
     document.getElementById('sReg').style.display='none';
     document.getElementById('sReg').removeAttribute('required');
     const ss=document.getElementById('sRegStatic');
-    ss.style.display='';ss.textContent=user.region;
+    ss.style.display='';ss.textContent=dispReg(user.region);
     document.getElementById('sReg').value=user.region;
     fillSCities();
   }
