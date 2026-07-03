@@ -1260,7 +1260,7 @@ function showApp(){
   document.getElementById('hName').textContent=user.fio;
   const branchLabels={'ДРБ':'ДРБ','ДКБ':'ДКБ','Сеть':'Сеть','ДУП':'ДУП'};
   const branchFull={'ДРБ':'Дивизион по розничному бизнесу','ДКБ':'Дивизион по корпоративному бизнесу','Сеть':'Объединение «Дивизион «Сеть»','ДУП':'Дирекция управления проектами'};
-  const regLabel=user.region==='HQ'?'РИПС':user.region;
+  const regLabel=user.region==='HQ'?'РИПС':dispReg(user.region);
   document.getElementById('hRegion').textContent=(user.branch?branchLabels[user.branch]+' · ':'')+regLabel;
   const bEl=document.getElementById('hBranch');
   if(bEl){bEl.textContent=user.branch?branchFull[user.branch]||user.branch:'';}
