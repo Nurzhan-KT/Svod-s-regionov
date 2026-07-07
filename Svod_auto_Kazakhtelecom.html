@@ -1597,7 +1597,8 @@ function submitT(e){
   if(!ww){toast('Выберите рабочую неделю','err');return}
   const isDRTRUser=user.region==='ДРТР'&&isFieldRole(user.role);
   const isDRBBranch=!user.branch||user.branch==='ДРБ';
-  let region=document.getElementById('tReg').value;
+  const tRegEl=document.getElementById('tReg');
+  let region=tRegEl.style.display==='none'?(user.region||''):tRegEl.value;
   let city;
   if(isDRTRUser) city='ДРТР';
   else if(!isDRBBranch) city=region;
@@ -2286,7 +2287,8 @@ function submitS(e){
   if(!ww){toast('Выберите рабочую неделю','err');return}
   const isDRTRUser=user.region==='ДРТР'&&isFieldRole(user.role);
   const isDRBBranchS=!user.branch||user.branch==='ДРБ';
-  let region=document.getElementById('sReg').value;
+  const sRegEl=document.getElementById('sReg');
+  let region=sRegEl.style.display==='none'?(user.region||''):sRegEl.value;
   let city;
   if(isDRTRUser) city='ДРТР';
   else if(!isDRBBranchS) city=region;
