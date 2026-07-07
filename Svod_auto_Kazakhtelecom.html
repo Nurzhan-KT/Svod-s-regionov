@@ -1563,7 +1563,8 @@ function fillSCities(){
   const isStioupUser=user?.region==='СТиОУП'&&isFieldRole(user?.role);
   const isAdmin=user?.role==='admin';
   const isDRB=!user?.branch||user?.branch==='ДРБ';
-  const reg=document.getElementById('sReg').value;
+  const sRegEl=document.getElementById('sReg');
+  const reg=sRegEl.style.display==='none'?(user?.region||''):sRegEl.value;
   const citySelect=document.getElementById('sCity');
   const cityStatic=document.getElementById('sCityStatic');
 
