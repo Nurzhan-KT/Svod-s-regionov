@@ -1942,7 +1942,9 @@ function afFillForm(r){
   // Регион и цех
   const tReg=document.getElementById('tReg');
   if(r.region&&tReg){
-    tReg.value=r.region;
+    // Нормализуем имя региона к полному (для ДРБ)
+    const normReg=DRB_REG_MAP[r.region]||r.region;
+    if(tReg.style.display!=='none'){tReg.value=normReg;}
     fillTCities();
   }
   if(r.city){setTimeout(()=>{
