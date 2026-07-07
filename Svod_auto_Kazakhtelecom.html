@@ -1955,6 +1955,7 @@ function afFillForm(r){
     if(cs)cs.value=r.city;
   },0);}
   if(r.location)document.getElementById('tLocation').value=r.location;
+  updateWdHint();
   closeAutoFill();
   toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
 }
@@ -2446,6 +2447,7 @@ function afSFillForm(r){
     if(cs)cs.value=r.city;
   },0);}
   if(r.location)document.getElementById('sLocation').value=r.location;
+  updateWdHintS();
   closeAutoFillS();
   toast('✓ Данные заполнены за '+MONTHS[+tMonth]+' '+tYear,'ok');
 }
