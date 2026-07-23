@@ -593,22 +593,30 @@ function buildSection(tab){
 }
 
 // ── AUTOCOMPLETE ──
-const activeAC = {};
 function makeAC(inputEl, matsArr, sapEl, unitEl){
   let idx = -1;
-  const container = inputEl.closest('.ac-wrap') || inputEl.parentElement;
-  let list = container.querySelector('.ac-list');
-  if(!list){list = document.createElement('div');list.className='ac-list';list.style.display='none';container.appendChild(list);}
+  // Append to body with fixed positioning to escape overflow:auto clipping
+  const list = document.createElement('div');
+  list.className = 'ac-list';
+  list.style.cssText = 'display:none;position:fixed;z-index:9990';
+  document.body.appendChild(list);
 
+  function reposition(){
+    const r = inputEl.getBoundingClientRect();
+    list.style.left  = r.left + 'px';
+    list.style.top   = r.bottom + 'px';
+    list.style.width = r.width + 'px';
+  }
   function show(items){
     if(!items.length){list.innerHTML='<div class="ac-empty">Ничего не найдено</div>';}
     else{
-      list.innerHTML = items.slice(0,20).map((m,i)=>{
-        const q = inputEl.value.trim().toLowerCase();
+      const q = inputEl.value.trim().toLowerCase();
+      list.innerHTML = items.slice(0,25).map(m=>{
         const hi = m.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>');
-        return `<div class="ac-item" data-val="${m}" data-i="${i}">${hi}</div>`;
+        return `<div class="ac-item" data-val="${m}">${hi}</div>`;
       }).join('');
     }
+    reposition();
     list.style.display = '';
     list.querySelectorAll('.ac-item').forEach(el=>{
       el.onmousedown = e=>{e.preventDefault(); select(el.dataset.val);};
@@ -618,8 +626,7 @@ function makeAC(inputEl, matsArr, sapEl, unitEl){
   function hide(){list.style.display='none'; idx=-1;}
   function select(val){
     inputEl.value = val;
-    const m = matsArr.find(x=>x===val);
-    const mData = m ? getMatData(m) : null;
+    const mData = getMatData(val);
     if(sapEl && mData) sapEl.value = mData.sap||'';
     if(unitEl && mData) unitEl.value = mData.unit||'';
     hide();
@@ -628,12 +635,10 @@ function makeAC(inputEl, matsArr, sapEl, unitEl){
     for(const tab of TABS){ if(tab.mats[name]) return tab.mats[name]; }
     return null;
   }
-
   inputEl.addEventListener('input', ()=>{
     const q = inputEl.value.trim().toLowerCase();
     if(!q){hide();return;}
-    const hits = matsArr.filter(m=>m.toLowerCase().includes(q));
-    show(hits);
+    show(matsArr.filter(m=>m.toLowerCase().includes(q)));
   });
   inputEl.addEventListener('keydown', e=>{
     const items = list.querySelectorAll('.ac-item');
@@ -647,6 +652,8 @@ function makeAC(inputEl, matsArr, sapEl, unitEl){
   inputEl.addEventListener('focus', ()=>{
     if(inputEl.value.trim()) inputEl.dispatchEvent(new Event('input'));
   });
+  new MutationObserver(()=>{ if(!document.body.contains(inputEl)) list.remove(); })
+    .observe(document.body,{childList:true,subtree:true});
 }
 
 // ── MATERIAL ROWS ──
