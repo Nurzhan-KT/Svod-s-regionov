@@ -57,6 +57,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 /* CARDS */
 .card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
 .cardhd{padding:12px 18px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cardhd select option{color:#1F2328;background:#fff}
 .cardhd-l{display:flex;align-items:center;gap:8px}
 .cardbody{padding:16px 18px}
 
@@ -555,7 +556,10 @@ function buildSection(tab){
       <input type="date" id="sumDateFrom${p}" onchange="renderSummary('${p}')">
       <span style="font-size:12px;color:var(--muted)">—</span>
       <input type="date" id="sumDateTo${p}" onchange="renderSummary('${p}')">
-      <input type="text" id="sumMatFilter${p}" placeholder="🔍 Фильтр по материалу..." oninput="renderSummary('${p}')">
+      <select id="sumMatFilter${p}" onchange="renderSummary('${p}')" style="padding:3px 8px;border:1px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;flex:1;min-width:180px">
+        <option value="">— Все материалы —</option>
+      </select>
+      <button onclick="clearSumFilter('${p}')" style="padding:3px 10px;border:1px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;background:#fff;cursor:pointer;white-space:nowrap">✕ Очистить</button>
     </div>
     <div class="cardbody" style="padding:12px 14px">
       <div style="overflow-x:auto">
@@ -748,6 +752,7 @@ function setupListeners(){
       tabData[tab.id]=snap.docs.map(d=>({id:d.id,...d.data()}));
       if(user){
         renderTab(tab.id);
+        fillSumMatFilter(tab.id);
         // Auto-fill № Заявки if field is empty
         const el=document.getElementById(tab.id+'ReqNum');
         if(el && !el.value) el.value=nextReqNum(tab.id);
@@ -1059,6 +1064,28 @@ function fmtNum(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('ru'
 const RDTS_ORDER = ['АЛМАТЫ','АСТАНА','ВОСТОК','ЗАПАД','СЕВЕР','ЦЕНТР','ЮГ'];
 const STATUS_ORDER = ['Доставлен','в пути','Ждут транзитной авто'];
 
+// ── SUMMARY FILTERS ──
+function fillSumMatFilter(p){
+  const sel = document.getElementById('sumMatFilter'+p);
+  if(!sel) return;
+  const cur = sel.value;
+  const names = [...new Set(
+    (tabData[p]||[]).flatMap(r=>(r.materials||[]).map(m=>m.name||'').filter(Boolean))
+  )].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML = '<option value="">— Все материалы —</option>'
+    + names.map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');
+}
+
+function clearSumFilter(p){
+  const df=document.getElementById('sumDateFrom'+p);
+  const dt=document.getElementById('sumDateTo'+p);
+  const mf=document.getElementById('sumMatFilter'+p);
+  if(df) df.value='';
+  if(dt) dt.value='';
+  if(mf) mf.value='';
+  renderSummary(p);
+}
+
 const sumExpanded = {}; // tabId -> Set of expanded status strings
 
 function toggleSumDetail(p, rowEl){
@@ -1074,10 +1101,12 @@ function renderSummary(p){
   const bodyEl = document.getElementById('sumBody'+p);
   if(!hdrEl||!bodyEl) return;
 
+  fillSumMatFilter(p); // keep dropdown up-to-date with loaded data
+
   const metric    = document.getElementById('sumGroupBy'+p)?.value||'qty';
   const dateFrom  = document.getElementById('sumDateFrom'+p)?.value||'';
   const dateTo    = document.getElementById('sumDateTo'+p)?.value||'';
-  const matFilter = (document.getElementById('sumMatFilter'+p)?.value||'').toLowerCase().trim();
+  const matFilter = document.getElementById('sumMatFilter'+p)?.value||'';
 
   // Filter records by date range
   let data = (tabData[p]||[]).filter(r=>{
@@ -1086,9 +1115,9 @@ function renderSummary(p){
     return true;
   });
 
-  // If material filter: keep only records containing a matching material
+  // If material filter: keep only records containing that exact material
   if(matFilter){
-    data = data.filter(r=>(r.materials||[]).some(m=>(m.name||'').toLowerCase().includes(matFilter)));
+    data = data.filter(r=>(r.materials||[]).some(m=>m.name===matFilter));
   }
 
   if(!data.length){
