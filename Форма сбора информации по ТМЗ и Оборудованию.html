@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Форма сбора информации по ТМЗ и Оборудованию</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#003087;--blue:#0055AB;--blue2:#0078D7;--pale:#EBF3FC;
+  --green:#1A6B2E;--green-bg:#E6F4EA;
+  --red:#B91C1C;--red-bg:#FEE2E2;
+  --bg:#F0F4F9;--border:#D0D7DE;--text:#1F2328;--muted:#636C76;
+  --sh:0 1px 4px rgba(0,0,0,.08);--sh2:0 4px 16px rgba(0,0,0,.12);
+  --r:10px;--r2:6px;
+}
+html{font-size:14px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* MODAL */
+#loginModal{position:fixed;inset:0;background:rgba(0,20,60,.78);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(6px)}
+.mbox{background:#fff;border-radius:20px;padding:42px 38px;width:min(460px,92vw);box-shadow:var(--sh2);text-align:center}
+.mlogo{width:70px;height:70px;background:linear-gradient(145deg,var(--navy),var(--blue2));border-radius:18px;display:inline-flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;letter-spacing:-2px;margin-bottom:12px;box-shadow:0 6px 20px rgba(0,48,135,.35)}
+.mco{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:20px}
+.mtitle{font-size:21px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.msub{color:var(--muted);font-size:13px;margin-bottom:26px;line-height:1.5}
+.mf{margin-bottom:14px;text-align:left}
+.mf label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.mf input,.mf select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:14px;font-family:inherit;transition:border-color .2s,box-shadow .2s}
+.mf input:focus,.mf select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,85,171,.12)}
+.btn-login{width:100%;padding:13px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border:none;border-radius:var(--r2);font-size:15px;font-weight:600;cursor:pointer;margin-top:6px;transition:opacity .2s,transform .15s;font-family:inherit}
+.btn-login:hover{opacity:.9;transform:translateY(-1px)}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--blue2) 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 26px;height:58px;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,30,80,.3)}
+.hl{display:flex;align-items:center;gap:13px}
+.hicon{width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;letter-spacing:-1px}
+.hco{font-size:15px;font-weight:700}.hsub{font-size:11px;opacity:.75}
+.hr{display:flex;align-items:center;gap:14px;font-size:13px}
+.uchip{background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:5px 13px;display:flex;align-items:center;gap:7px}
+.udot{width:8px;height:8px;background:#4ADE80;border-radius:50%}
+.hq-badge{background:rgba(255,200,0,.25);border:1px solid rgba(255,200,0,.5);color:#FFE066;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.btn-exit{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);color:#fff;padding:5px 13px;border-radius:var(--r2);cursor:pointer;font-size:12px;font-family:inherit;transition:background .2s}
+.btn-exit:hover{background:rgba(255,255,255,.22)}
+
+/* TABS */
+.tabbar{background:#fff;border-bottom:2px solid var(--border);padding:0 26px;display:flex;gap:4px;position:fixed;top:58px;left:0;right:0;z-index:150;box-shadow:0 2px 6px rgba(0,0,0,.06);overflow-x:auto}
+.tabbtn{display:flex;align-items:center;gap:9px;padding:13px 22px;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);transition:all .18s;font-family:inherit;white-space:nowrap}
+.tabbtn:hover{color:var(--navy);background:var(--pale);border-radius:8px 8px 0 0}
+.tabbtn.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:700}
+.tabico{font-size:17px}
+
+/* LAYOUT */
+.content{max-width:1420px;margin:0 auto;padding:22px 26px;padding-top:72px}
+.sec{display:none}.sec.active{display:block}
+
+/* STATUS PANEL */
+.sthdr{background:#fff;border-radius:var(--r);padding:18px 22px;margin-bottom:18px;border:1px solid var(--border);box-shadow:var(--sh)}
+.strow{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap;gap:8px}
+.sttitle{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.stgrid{display:flex;flex-wrap:wrap;gap:9px}
+.stdot{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500}
+.stdot.filled{background:var(--green-bg);color:var(--green);border:1px solid #B7DFBE}
+.stdot.empty{background:var(--red-bg);color:var(--red);border:1px solid #FECACA}
+.cntbubble{background:rgba(0,0,0,.15);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+
+/* CARD */
+.card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:18px;overflow:hidden}
+.cardhd{padding:14px 20px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cardhd-l{display:flex;align-items:center;gap:9px}
+.cardbody{padding:20px}
+
+/* FORM */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:15px;margin-bottom:16px}
+.ff{display:flex;flex-direction:column;gap:5px}
+.ff.full{grid-column:1/-1}
+.ff label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.ff input,.ff select,.ff textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;color:var(--text);transition:border-color .2s,box-shadow .2s;font-family:inherit;background:#fff}
+.ff input:focus,.ff select:focus,.ff textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,85,171,.1)}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border:none;border-radius:var(--r2);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .18s;font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:#002070;box-shadow:0 3px 10px rgba(0,32,112,.3)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#145422}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#991B1B}
+.btn-outline{background:transparent;border:1.5px solid var(--navy);color:var(--navy)}.btn-outline:hover{background:var(--pale)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-ghost{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff}.btn-ghost:hover{background:rgba(255,255,255,.24)}
+.btns{display:flex;gap:11px;flex-wrap:wrap;align-items:center}
+
+/* EXPORT NOTE */
+.export-note{font-size:11.5px;color:rgba(255,255,255,.7);font-style:italic}
+
+/* TABLE */
+.twrap{overflow-x:auto;border-radius:var(--r2)}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+.dt thead{background:var(--navy);color:#fff}
+.dt thead th{padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px}
+.dt tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.dt tbody tr:hover{background:var(--pale)}
+.dt tbody td{padding:9px 12px;vertical-align:middle}
+.et{text-align:center;padding:38px;color:var(--muted)}
+.et .ei{font-size:38px;margin-bottom:10px}
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11.5px;font-weight:600}
+.badge-b{background:var(--pale);color:var(--navy)}
+.badge-period{background:#F3F4F6;color:#374151;font-size:11px;padding:2px 8px;border-radius:8px;white-space:nowrap}
+.cntbadge{display:inline-block;background:rgba(255,255,255,.2);padding:2px 9px;border-radius:11px;font-size:12px;margin-left:6px}
+
+/* TOAST */
+#toast{position:fixed;top:68px;right:22px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;color:#fff;box-shadow:var(--sh2);z-index:9998;transform:translateX(calc(100% + 30px));transition:transform .3s cubic-bezier(.34,1.56,.64,1);max-width:340px}
+#toast.show{transform:translateX(0)}
+#toast.t-ok{background:var(--green)}
+#toast.t-err{background:var(--red)}
+#toast.t-info{background:var(--navy)}
+
+/* MISC */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
+@media(max-width:768px){.hdr,.tabbar,.content{padding-left:14px;padding-right:14px}.fgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginModal">
+  <div class="mbox">
+    <div><div class="mlogo">КТ</div></div>
+    <div class="mco">АО «Казахтелеком»</div>
+    <h2 class="mtitle">Форма сбора ТМЗ и Оборудования</h2>
+    <p class="msub">Укажите ваши данные для входа.<br>Они будут отображаться в записях.</p>
+    <div class="mf"><label>ФИО</label><input id="lFio" placeholder="Фамилия Имя Отчество" /></div>
+    <div class="mf">
+      <label>Филиал</label>
+      <select id="lBranch" onchange="onLoginBranchChange()">
+        <option value="">— Выберите филиал —</option>
+        <option value="ДРБ">Дивизион по розничному бизнесу</option>
+        <option value="ДКБ">Дивизион по корпоративному бизнесу</option>
+        <option value="Сеть">Объединение "Дивизион "Сеть"</option>
+        <option value="ДУП">Дирекция управления проектами</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Регион</label>
+      <select id="lRegion" onchange="onLoginRegionChange()">
+        <option value="">— Сначала выберите филиал —</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Роль</label>
+      <select id="lRole">
+        <option value="">— Выберите роль —</option>
+        <option value="inventory" id="optInventory">Материально-ответственное лицо (МОЛ)</option>
+        <option value="admin" id="optAdmin" style="display:none">Администратор / Сводная отчётность</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Пароль</label>
+      <input id="lPass" type="password" placeholder="(будет активировано)" disabled style="background:#f8f9fa;cursor:not-allowed;opacity:.6" />
+    </div>
+    <button class="btn-login" onclick="doLogin()">Войти в систему</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="hdr" id="appHdr" style="display:none">
+  <div class="hl">
+    <div class="hicon">КТ</div>
+    <div><div class="hco">АО «Казахтелеком»</div><div class="hsub">Форма сбора ТМЗ и Оборудования</div></div>
+  </div>
+  <div class="hr">
+    <span id="hqBadge" class="hq-badge" style="display:none">⭐ РИПС</span>
+    <div class="uchip"><div class="udot"></div><span id="hName">—</span><span style="opacity:.5">|</span><span id="hRegion" style="opacity:.85"></span></div>
+    <button class="btn-exit" onclick="doLogout()">Выйти</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button class="tabbtn active" id="tabKab" onclick="switchTab('Kab')"><span class="tabico">🔌</span><span>Кабельная продукция и материалы</span></button>
+  <button class="tabbtn" id="tabCli" onclick="switchTab('Cli')"><span class="tabico">📡</span><span>Клиентское оборудование</span></button>
+  <button class="tabbtn" id="tabSta" onclick="switchTab('Sta')"><span class="tabico">🖥️</span><span>Станционное оборудование</span></button>
+  <button class="tabbtn" id="tabPrc" onclick="switchTab('Prc')"><span class="tabico">📦</span><span>Прочее</span></button>
+</nav>
+
+<!-- CONTENT: секции заполняются через JS -->
+<main class="content" id="mainContent" style="display:none">
+  <section class="sec active" id="secKab"></section>
+  <section class="sec" id="secCli"></section>
+  <section class="sec" id="secSta"></section>
+  <section class="sec" id="secPrc"></section>
+</main>
+<div id="toast"></div>
+
+<script>
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey: "AIzaSyDAf57D5gqcoVQJTVhygWL8CZZfVjMAC6Q",
+  authDomain: "svod-s-regionov.firebaseapp.com",
+  projectId: "svod-s-regionov",
+  storageBucket: "svod-s-regionov.firebasestorage.app",
+  messagingSenderId: "883313324410",
+  appId: "1:883313324410:web:a5854026fefe3e6055a6c3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── TAB CONFIG ──
+const TABS = [
+  {id:'Kab', label:'Кабельная продукция и материалы', icon:'🔌', col:'tmz_cable'},
+  {id:'Cli', label:'Клиентское оборудование',         icon:'📡', col:'tmz_client'},
+  {id:'Sta', label:'Станционное оборудование',         icon:'🖥️', col:'tmz_station'},
+  {id:'Prc', label:'Прочее',                           icon:'📦', col:'tmz_misc'},
+];
+
+// ── REGIONS ──
+const CITIES = {
+  'ЦРУ Центрального региона':['Астана','Кокшетау','Караганда'],
+  'ЦРУ Южного региона':['Шымкент','Тараз','Кызылорда'],
+  'ЦРУ Западного региона':['Атырау','Актау','Актобе','Уральск'],
+  'ЦРУ Северного региона':['Костанай','Петропавловск'],
+  'ЦРУ Восточного региона':['Семей','Павлодар','Өскемен'],
+  'ЦРУ Алматинского региона':['Алматы','Талдыкорган'],
+  'Центр':['Астана','Кокшетау','Караганда'],
+  'Юг':['Шымкент','Тараз','Кызылорда'],
+  'Запад':['Атырау','Актау','Актобе','Уральск'],
+  'Север':['Костанай','Петропавловск'],
+  'Восток':['Семей','Павлодар','Өскемен'],
+  'Алматы':['Алматы','Талдыкорган'],
+  'СТиОУП':['Алматы','Астана']
+};
+const KAZ_OBLASTS = ['Акмолинская обл.','Актюбинская обл.','Алматинская обл.','Атырауская обл.','Восточно-Казахстанская обл.','Жамбылская обл.','Западно-Казахстанская обл.','Карагандинская обл.','Костанайская обл.','Кызылординская обл.','Мангистауская обл.','Павлодарская обл.','Северо-Казахстанская обл.','Туркестанская обл.','Абайская обл.','Жетысуская обл.','Улытауская обл.','г. Астана','г. Алматы'];
+KAZ_OBLASTS.forEach(r => {CITIES[r] = [r];});
+const SET_REGIONS = ['ДЭСД Восточного региона','ДЭСД Северного региона','ДЭСД Центрального региона','ДЭСД Алматинского региона','ДЭСД Западного региона','ДЭСД Южного региона'];
+SET_REGIONS.forEach(r => {CITIES[r] = [r];});
+const DRB_REG_MAP = {'Центр':'ЦРУ Центрального региона','Юг':'ЦРУ Южного региона','Запад':'ЦРУ Западного региона','Север':'ЦРУ Северного региона','Восток':'ЦРУ Восточного региона','Алматы':'ЦРУ Алматинского региона'};
+function dispReg(r){return DRB_REG_MAP[r]||r;}
+const DRB_REGIONS_NEW = ['ЦРУ Восточного региона','ЦРУ Северного региона','ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ДРТР'];
+const RI = ['ЦРУ Центрального региона','ЦРУ Южного региона','ЦРУ Западного региона','ЦРУ Алматинского региона','ЦРУ Восточного региона','ЦРУ Северного региона','СТиОУП'];
+const MONTHS = ['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+// ── STATE ──
+let user = null;
+const tabData = {};
+const unsubs = {};
+TABS.forEach(t => {tabData[t.id] = []; unsubs[t.id] = null;});
+
+function isHQ(){return user && user.region === 'HQ';}
+function isRipsAdmin(){return isHQ() && user.role === 'admin';}
+function periodLabel(m,y){return MONTHS[+m]+' '+y;}
+
+// ── HTML BUILDER ──
+function monthOpts(){
+  return ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+    .map((n,i)=>`<option value="${i+1}">${n}</option>`).join('');
+}
+function yearOpts(){
+  return [2024,2025,2026,2027].map(y=>`<option value="${y}">${y}</option>`).join('');
+}
+function periodSelects(prefix){
+  return`<select id="periodMonth${prefix}" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderTab('${prefix}')">
+    <option value="all">Все месяцы</option>${monthOpts()}
+  </select>
+  <select id="periodYear${prefix}" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderTab('${prefix}')">
+    <option value="all">Все годы</option>${yearOpts()}
+  </select>`;
+}
+function statusSelects(prefix){
+  return`<select id="stMonth${prefix}" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+    <option value="all">Все месяцы</option>${monthOpts()}
+  </select>
+  <select id="stYear${prefix}" style="padding:4px 9px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit;cursor:pointer" onchange="renderStatus()">
+    <option value="all">Все годы</option>${yearOpts()}
+  </select>`;
+}
+
+function buildSection(tab){
+  const p = tab.id;
+  return`
+  <div class="sthdr">
+    <div class="strow">
+      <div class="sttitle">📊 Статус заполнения — ${tab.label}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${statusSelects(p)}</div>
+    </div>
+    <div class="stgrid" id="st${p}"></div>
+  </div>
+
+  <div class="card">
+    <div class="cardhd">
+      <div class="cardhd-l"><span>➕</span><span>Добавить запись — ${tab.label}</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="clearForm('${p}')">Очистить</button>
+    </div>
+    <div class="cardbody">
+      <form id="form${p}" onsubmit="submitTab('${p}',event)">
+        <div class="fgrid">
+          <div class="ff">
+            <label>Месяц отчётности *</label>
+            <select id="${p}Month" required>
+              <option value="">— Месяц —</option>${monthOpts()}
+            </select>
+          </div>
+          <div class="ff">
+            <label>Год отчётности *</label>
+            <select id="${p}Year" required>
+              <option value="">— Год —</option>${yearOpts()}
+            </select>
+          </div>
+          <div class="ff">
+            <label>Регион *</label>
+            <select id="${p}Reg" required onchange="fillCities('${p}')">
+              <option value="">— Выберите регион —</option>
+            </select>
+            <div id="${p}RegStatic" style="display:none;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13.5px;background:#f8f9fa;font-weight:600;color:var(--navy)"></div>
+          </div>
+          <div class="ff">
+            <label>Город / Цех *</label>
+            <select id="${p}City" required>
+              <option value="">— Сначала выберите регион —</option>
+            </select>
+          </div>
+          <div class="ff" id="${p}LocWrap" style="display:none">
+            <label>Местонахождение</label>
+            <input id="${p}Loc" placeholder="Введите местонахождение" />
+          </div>
+          <div class="ff">
+            <label>ФИО МОЛ *</label>
+            <input id="${p}Mol" placeholder="Фамилия Имя Отчество" required />
+          </div>
+          <div class="ff full">
+            <label>Наименование *</label>
+            <input id="${p}Equip" placeholder="Введите наименование" required />
+          </div>
+          <div class="ff">
+            <label>Количество новые *</label>
+            <input type="number" id="${p}QtyNew" min="0" placeholder="0" required />
+          </div>
+          <div class="ff">
+            <label>Количество б/у *</label>
+            <input type="number" id="${p}QtyUsed" min="0" placeholder="0" required />
+          </div>
+          <div class="ff full">
+            <label>Примечание</label>
+            <input id="${p}Note" placeholder="Дополнительная информация..." />
+          </div>
+        </div>
+        <div class="btns">
+          <button type="submit" class="btn btn-navy">💾 Сохранить запись</button>
+          <button type="button" class="btn btn-outline" onclick="clearForm('${p}')">Очистить форму</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardhd">
+      <div class="cardhd-l">
+        <span>📋</span><span>Сводная таблица — ${tab.label}</span>
+        <span class="cntbadge" id="cnt${p}">0 зап.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
+        <span class="export-note" id="exportNote${p}"></span>
+        <select id="viewFilter${p}" style="display:none;padding:5px 10px;border:1.5px solid var(--border);border-radius:var(--r2);font-size:13px;font-family:inherit;cursor:pointer" onchange="renderTab('${p}')">
+          <option value="all">Все регионы</option>
+        </select>
+        ${periodSelects(p)}
+        <button class="btn btn-green" onclick="exportTab('${p}')">📥 Выгрузить в Excel</button>
+      </div>
+    </div>
+    <div class="cardbody">
+      <div class="twrap">
+        <table class="dt">
+          <thead><tr>
+            <th>#</th><th>Период</th><th>Регион</th><th>Город / Цех</th><th>Местонахождение</th>
+            <th>ФИО МОЛ</th><th>Наименование</th><th>Кол-во новые</th><th>Кол-во б/у</th>
+            <th>Примечание</th><th>Внёс</th><th>Дата</th><th></th>
+          </tr></thead>
+          <tbody id="tb${p}">
+            <tr><td colspan="13"><div class="et"><div class="ei">${tab.icon}</div>Данных нет — заполните форму выше</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── FIRESTORE LISTENERS ──
+function setupListeners(){
+  TABS.forEach(tab => {
+    if(unsubs[tab.id]) unsubs[tab.id]();
+    unsubs[tab.id] = db.collection(tab.col).onSnapshot(snap => {
+      tabData[tab.id] = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if(user){renderTab(tab.id);renderStatus();}
+    });
+  });
+}
+
+// ── AUTH ──
+function doLogin(){
+  const fio = document.getElementById('lFio').value.trim();
+  const branch = document.getElementById('lBranch').value;
+  const region = document.getElementById('lRegion').value;
+  const role = document.getElementById('lRole').value;
+  if(!fio){toast('Укажите ФИО','err');return;}
+  if(!branch){toast('Выберите филиал','err');return;}
+  if(!region){toast('Выберите регион','err');return;}
+  if(!role){toast('Выберите роль','err');return;}
+  user = {fio,branch,region,role};
+  localStorage.setItem('kt_user', JSON.stringify(user));
+  localStorage.setItem('kt_user_ts', Date.now().toString());
+  setupListeners();
+  showApp();
+}
+function doLogout(){
+  if(!confirm('Выйти?'))return;
+  TABS.forEach(t => {if(unsubs[t.id])unsubs[t.id]();});
+  localStorage.removeItem('kt_user');
+  user = null;
+  TABS.forEach(t => {tabData[t.id] = [];});
+  document.getElementById('loginModal').style.display = 'flex';
+  ['appHdr','tabbar','mainContent'].forEach(i => document.getElementById(i).style.display = 'none');
+}
+
+function showApp(){
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('appHdr').style.display = 'flex';
+  document.getElementById('tabbar').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('hName').textContent = user.fio;
+  const bLabels = {'ДРБ':'ДРБ','ДКБ':'ДКБ','Сеть':'Сеть','ДУП':'ДУП'};
+  const regLabel = user.region === 'HQ' ? 'РИПС' : user.region;
+  document.getElementById('hRegion').textContent = (user.branch ? bLabels[user.branch]+' · ' : '') + regLabel;
+  document.getElementById('hqBadge').style.display = isHQ() ? 'inline-block' : 'none';
+
+  // Строим HTML секций
+  TABS.forEach(tab => {
+    document.getElementById('sec'+tab.id).innerHTML = buildSection(tab);
+  });
+
+  const isAdmin = user.role === 'admin' || isHQ();
+  const isDRB = !user.branch || user.branch === 'ДРБ';
+
+  // Регион и город для каждой вкладки
+  TABS.forEach(tab => {
+    const p = tab.id;
+    const regSel = document.getElementById(p+'Reg');
+    // Заполняем регионы
+    regSel.innerHTML = '<option value="">— Выберите регион —</option>';
+    if(isDRB){
+      RI.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+    } else if(user.branch==='ДКБ'||user.branch==='ДУП'){
+      KAZ_OBLASTS.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+    } else if(user.branch==='Сеть'){
+      SET_REGIONS.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+    }
+
+    if(isAdmin){
+      regSel.style.display = '';
+      document.getElementById(p+'RegStatic').style.display = 'none';
+      if(isDRB && RI.includes(user.region)){
+        regSel.value = user.region;
+        fillCities(p);
+      }
+    } else {
+      regSel.style.display = 'none';
+      regSel.removeAttribute('required');
+      const st = document.getElementById(p+'RegStatic');
+      st.style.display = '';
+      st.textContent = user.region;
+      regSel.value = user.region;
+      fillCities(p);
+    }
+
+    // Текущий месяц/год
+    const now = new Date(), m = now.getMonth()+1, y = now.getFullYear().toString();
+    const mEl = document.getElementById(p+'Month');
+    if(mEl) mEl.value = m;
+    const yEl = document.getElementById(p+'Year');
+    if(yEl && [...yEl.options].some(o=>o.value===y)) yEl.value = y;
+
+    // Фильтр и экспорт нота
+    const vf = document.getElementById('viewFilter'+p);
+    if(vf) vf.style.display = 'none';
+    if(isRipsAdmin()){
+      setupViewFilter('viewFilter'+p, [...DRB_REGIONS_NEW,'СТиОУП']);
+    }
+    const en = document.getElementById('exportNote'+p);
+    if(en) en.textContent = isHQ() ? 'Выгрузка: все регионы' : 'Выгрузка: только ваш регион';
+  });
+
+  switchTab(localStorage.getItem('kt_tab') || 'Kab');
+  renderStatus();
+  TABS.forEach(t => renderTab(t.id));
+}
+
+// ── TABS ──
+function switchTab(id){
+  TABS.forEach(t => {
+    document.getElementById('sec'+t.id).classList.toggle('active', t.id===id);
+    document.getElementById('tab'+t.id).classList.toggle('active', t.id===id);
+  });
+  localStorage.setItem('kt_tab', id);
+}
+
+// ── VIEW FILTER ──
+function setupViewFilter(id, regions){
+  const sel = document.getElementById(id);
+  if(!sel)return;
+  sel.innerHTML = '<option value="all">Все регионы</option>';
+  regions.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+  sel.style.display = '';
+}
+function getViewFilter(id){
+  const sel = document.getElementById(id);
+  return sel ? sel.value : 'all';
+}
+function recBranch(r){return r.branch||'ДРБ';}
+function recRegNorm(r){return DRB_REG_MAP[r.region]||r.region;}
+
+function getFilteredRows(data, p){
+  const vf = getViewFilter('viewFilter'+p);
+  const pm = document.getElementById('periodMonth'+p)?.value || 'all';
+  const py = document.getElementById('periodYear'+p)?.value || 'all';
+  const userBranch = user.branch || 'ДРБ';
+  let rows;
+  if(isHQ()){
+    rows = data.filter(r => recBranch(r) === 'ДРБ');
+  } else {
+    rows = data.filter(r => {
+      if(recBranch(r) !== userBranch) return false;
+      return recRegNorm(r) === user.region || r.region === user.region;
+    });
+  }
+  if(isHQ() && vf !== 'all') rows = rows.filter(r => recRegNorm(r)===vf || r.region===vf);
+  if(pm !== 'all') rows = rows.filter(r => String(r.month) === pm);
+  if(py !== 'all') rows = rows.filter(r => String(r.year) === py);
+  return rows;
+}
+
+// ── CITY FILL ──
+function fillCities(p){
+  const reg = document.getElementById(p+'Reg').value;
+  const sel = document.getElementById(p+'City');
+  sel.innerHTML = '';
+  if(!reg || !CITIES[reg]){
+    sel.innerHTML = '<option value="">— Сначала выберите регион —</option>';
+  } else {
+    const def = document.createElement('option');def.value='';def.textContent='— Выберите город —';
+    sel.appendChild(def);
+    CITIES[reg].forEach(c => {const o=document.createElement('option');o.value=o.textContent=c;sel.appendChild(o);});
+  }
+  const locWrap = document.getElementById(p+'LocWrap');
+  if(locWrap) locWrap.style.display = reg ? 'flex' : 'none';
+}
+
+// ── SUBMIT / DELETE / CLEAR / RENDER / EXPORT ──
+function submitTab(p, e){
+  e.preventDefault();
+  const tab = TABS.find(t => t.id === p);
+  const region = document.getElementById(p+'Reg').value || user.region;
+  const city = document.getElementById(p+'City').value;
+  if(!region){toast('Выберите регион','err');return;}
+  if(!city){toast('Выберите город / цех','err');return;}
+  const rec = {
+    ts: new Date().toLocaleString('ru-KZ'),
+    by: user.fio,
+    branch: user.branch || 'ДРБ',
+    month: document.getElementById(p+'Month').value,
+    year: document.getElementById(p+'Year').value,
+    region,
+    city,
+    location: (document.getElementById(p+'Loc')?.value || '').trim(),
+    mol: document.getElementById(p+'Mol').value.trim(),
+    equip: document.getElementById(p+'Equip').value.trim(),
+    qtyNew: parseInt(document.getElementById(p+'QtyNew').value) || 0,
+    qtyUsed: parseInt(document.getElementById(p+'QtyUsed').value) || 0,
+    note: (document.getElementById(p+'Note')?.value || '').trim(),
+  };
+  const saved = {month:rec.month, year:rec.year, reg:region, city, mol:rec.mol};
+  db.collection(tab.col).add(rec).then(() => {
+    document.getElementById('form'+p).reset();
+    document.getElementById(p+'Month').value = saved.month;
+    document.getElementById(p+'Year').value = saved.year;
+    document.getElementById(p+'Reg').value = saved.reg;
+    fillCities(p);
+    document.getElementById(p+'City').value = saved.city;
+    document.getElementById(p+'Mol').value = saved.mol;
+    toast('✓ Запись добавлена','ok');
+  }).catch(err => toast('Ошибка: '+err.message,'err'));
+}
+
+function delRecord(col, docId){
+  if(!confirm('Удалить эту запись?'))return;
+  db.collection(col).doc(docId).delete()
+    .then(() => toast('Запись удалена','info'))
+    .catch(err => toast('Ошибка: '+err.message,'err'));
+}
+
+function clearForm(p){
+  document.getElementById('form'+p).reset();
+  document.getElementById(p+'City').innerHTML = '<option value="">— Сначала выберите регион —</option>';
+  const locEl = document.getElementById(p+'Loc');if(locEl)locEl.value='';
+  const noteEl = document.getElementById(p+'Note');if(noteEl)noteEl.value='';
+  const isAdmin = user?.role==='admin'||isHQ();
+  const isDRB = !user?.branch||user?.branch==='ДРБ';
+  if(!isAdmin && RI.includes(user?.region)){
+    document.getElementById(p+'Reg').value = user.region;
+    fillCities(p);
+  }
+  const now = new Date(), y = now.getFullYear().toString();
+  const mEl = document.getElementById(p+'Month');if(mEl)mEl.value=now.getMonth()+1;
+  const yEl = document.getElementById(p+'Year');
+  if(yEl && [...yEl.options].some(o=>o.value===y)) yEl.value=y;
+}
+
+function renderTab(p){
+  const tab = TABS.find(t => t.id === p);
+  const rows = getFilteredRows(tabData[p], p);
+  const cntEl = document.getElementById('cnt'+p);
+  if(cntEl) cntEl.textContent = rows.length+' зап.';
+  const tb = document.getElementById('tb'+p);
+  if(!tb)return;
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="13"><div class="et"><div class="ei">${tab.icon}</div>Данных нет — заполните форму выше</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><span class="badge-period">${periodLabel(r.month,r.year)}</span></td>
+      <td><span class="badge badge-b">${dispReg(r.region)}</span></td>
+      <td>${r.city}</td>
+      <td style="color:var(--muted);font-size:12px">${r.location||'—'}</td>
+      <td>${r.mol}</td>
+      <td>${r.equip}</td>
+      <td style="text-align:center;font-weight:600">${r.qtyNew??0}</td>
+      <td style="text-align:center;font-weight:600">${r.qtyUsed??0}</td>
+      <td style="color:var(--muted);font-size:12px">${r.note||'—'}</td>
+      <td style="font-size:12px">${r.by}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.ts}</td>
+      <td><button class="btn btn-red btn-sm" onclick="delRecord('${tab.col}','${r.id}')">✕</button></td>
+    </tr>`).join('');
+}
+
+function exportTab(p){
+  const tab = TABS.find(t => t.id === p);
+  const rows = getFilteredRows(tabData[p], p);
+  if(!rows.length){toast('Нет данных для выгрузки','err');return;}
+  const sheet = [
+    ['№','Месяц','Год','Регион','Город / Цех','Местонахождение','ФИО МОЛ','Наименование','Кол-во новые','Кол-во б/у','Примечание','Кто вносил данные','Дата внесения'],
+    ...rows.map((r,i) => [i+1,MONTHS[+r.month],r.year,r.region,r.city,r.location||'',r.mol,r.equip,r.qtyNew??0,r.qtyUsed??0,r.note||'',r.by,r.ts])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sheet);
+  ws['!cols'] = [4,14,8,18,16,22,28,38,13,13,24,24,18].map(w => ({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, tab.label.slice(0,31));
+  const vf = getViewFilter('viewFilter'+p);
+  const suf = vf!=='all' ? vf : isHQ() ? 'все_регионы' : user.region;
+  const fname = 'КТ_'+tab.label.replace(/\s+/g,'_')+'_'+suf+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('📥 Файл сохранён','ok');
+}
+
+// ── STATUS ──
+function getBranchRegions(){
+  const b = user?.branch || 'ДРБ';
+  if(b==='ДРБ') return RI;
+  if(b==='ДКБ'||b==='ДУП') return KAZ_OBLASTS;
+  if(b==='Сеть') return SET_REGIONS;
+  return [];
+}
+function filterByBranchAndPeriod(data, monthId, yearId){
+  const pm = document.getElementById(monthId)?.value || 'all';
+  const py = document.getElementById(yearId)?.value || 'all';
+  const b = user?.branch || 'ДРБ';
+  let rows = isHQ() ? data.filter(r=>recBranch(r)==='ДРБ') : data.filter(r=>recBranch(r)===b);
+  if(pm!=='all') rows = rows.filter(r => String(r.month)===pm);
+  if(py!=='all') rows = rows.filter(r => String(r.year)===py);
+  return rows;
+}
+function renderStatus(){
+  const regions = getBranchRegions();
+  TABS.forEach(tab => {
+    const p = tab.id;
+    const stEl = document.getElementById('st'+p);
+    if(!stEl)return;
+    const rows = filterByBranchAndPeriod(tabData[p], 'stMonth'+p, 'stYear'+p);
+    stEl.innerHTML = regions.map(reg => {
+      const n = rows.filter(r => r.region===reg).length, ok = n>0;
+      return`<div class="stdot ${ok?'filled':'empty'}">
+        <span>${ok?'✓':'✗'}</span>
+        <span>${reg}</span>
+        ${ok?`<span class="cntbubble">${n}</span>`:''}
+      </div>`;
+    }).join('');
+  });
+}
+
+// ── TOAST ──
+let _tt = null;
+function toast(msg, type='info'){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 't-'+type; el.classList.add('show');
+  if(_tt) clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── LOGIN FIELD LOGIC ──
+function onLoginBranchChange(){
+  const branch = document.getElementById('lBranch').value;
+  const regSel = document.getElementById('lRegion');
+  regSel.innerHTML = '<option value="">— Выберите регион —</option>';
+  document.getElementById('lRole').value = '';
+  ['optInventory','optAdmin'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.style.display = 'none';
+  });
+  if(branch==='ДРБ'){
+    DRB_REGIONS_NEW.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+    const hq = document.createElement('option');hq.value='HQ';hq.textContent='РИПС';regSel.appendChild(hq);
+  } else if(branch==='ДКБ'||branch==='ДУП'){
+    KAZ_OBLASTS.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+  } else if(branch==='Сеть'){
+    SET_REGIONS.forEach(r => {const o=document.createElement('option');o.value=r;o.textContent=r;regSel.appendChild(o);});
+  }
+  onLoginRegionChange();
+}
+function onLoginRegionChange(){
+  const reg = document.getElementById('lRegion').value;
+  const role = document.getElementById('lRole').value;
+  const optInv = document.getElementById('optInventory');
+  const optAdmin = document.getElementById('optAdmin');
+  if(reg==='HQ'){
+    if(optAdmin) optAdmin.style.display = '';
+    if(optInv) optInv.style.display = 'none';
+    if(role!=='admin') document.getElementById('lRole').value = '';
+  } else if(reg){
+    if(optAdmin) optAdmin.style.display = 'none';
+    if(optInv) optInv.style.display = '';
+    if(role==='admin') document.getElementById('lRole').value = '';
+  }
+}
+
+// ── BOOT ──
+const _u = localStorage.getItem('kt_user');
+const _ts = parseInt(localStorage.getItem('kt_user_ts') || '0');
+if(_u && (Date.now() - _ts) < 30*60*1000){
+  user = JSON.parse(_u);
+  if(user.role === 'transport'){
+    localStorage.removeItem('kt_user');
+    user = null;
+  } else {
+    setupListeners();
+    showApp();
+  }
+}
+</script>
+</body>
+</html>
