@@ -152,6 +152,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px;min-width:1400px}
 .stbl td:first-child{text-align:left;font-weight:500;white-space:nowrap}
 .stbl tr:hover td{filter:brightness(.96)}
 .sr-ok{background:#f0fdf4}.sr-go{background:#eff6ff}.sr-wait{background:#fffbeb}
+.sr-assembly{background:#faf5ff}.sr-waiting{background:#fff7ed}.sr-extra{background:#fff1f2}
 .sr-grand td{background:#e5ecf8;font-weight:700;border-top:2px solid var(--navy)}
 .sv{display:block;font-weight:700}.sc{font-size:10.5px;color:var(--muted)}
 .scol-tot{background:#eef2fb!important;font-weight:700}
@@ -436,7 +437,7 @@ const TABS = [
   {id:'Prc', label:'Прочее',                            icon:'📦', col:'tctl_misc',    mats:MAT_MISC},
 ];
 
-const STATUSES = ['Доставлен','в пути','Ждут транзитной авто'];
+const STATUSES = ['Доставлен','в пути','Ждут транзитной авто','следующая сборка','ожидание транспорта','догруз'];
 const TRANSPORT = ['Авто','Спец связь'];
 const FINANCE = ['ОБ','ОБ/ОДС','БКВ','ОР БКВ'];
 const MONTHS = ['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -1062,7 +1063,7 @@ function fmtNum(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('ru'
 
 // ── SUMMARY ──
 const RDTS_ORDER = ['АЛМАТЫ','АСТАНА','ВОСТОК','ЗАПАД','СЕВЕР','ЦЕНТР','ЮГ'];
-const STATUS_ORDER = ['Доставлен','в пути','Ждут транзитной авто'];
+const STATUS_ORDER = ['Доставлен','в пути','Ждут транзитной авто','следующая сборка','ожидание транспорта','догруз'];
 
 // ── SUMMARY FILTERS ──
 function fillSumMatFilter(p){
@@ -1174,9 +1175,12 @@ function renderSummary(p){
   function fq(n){ if(!n) return '<span style="color:#ccc">—</span>'; return Number(n).toLocaleString('ru'); }
 
   function rowCls(s){
-    if(s==='Доставлен') return 'sr-ok';
-    if(s==='в пути')    return 'sr-go';
-    if(s==='Ждут транзитной авто') return 'sr-wait';
+    if(s==='Доставлен')             return 'sr-ok';
+    if(s==='в пути')                return 'sr-go';
+    if(s==='Ждут транзитной авто')  return 'sr-wait';
+    if(s==='следующая сборка')      return 'sr-assembly';
+    if(s==='ожидание транспорта')   return 'sr-waiting';
+    if(s==='догруз')                return 'sr-extra';
     return '';
   }
 
