@@ -733,13 +733,25 @@ function calcDelay(p){
   }
 }
 
+// ── AUTO NUMBERING ──
+function nextReqNum(p){
+  const nums = (tabData[p]||[]).map(r=>parseInt(r.reqNum)||0).filter(n=>n>0);
+  const max  = nums.length ? Math.max(...nums) : 0;
+  return String(max + 1).padStart(3, '0');
+}
+
 // ── FIRESTORE ──
 function setupListeners(){
   TABS.forEach(tab=>{
     if(unsubs[tab.id])unsubs[tab.id]();
     unsubs[tab.id]=db.collection(tab.col).orderBy('ts','desc').onSnapshot(snap=>{
       tabData[tab.id]=snap.docs.map(d=>({id:d.id,...d.data()}));
-      if(user){renderTab(tab.id);}
+      if(user){
+        renderTab(tab.id);
+        // Auto-fill № Заявки if field is empty
+        const el=document.getElementById(tab.id+'ReqNum');
+        if(el && !el.value) el.value=nextReqNum(tab.id);
+      }
     });
   });
 }
@@ -879,6 +891,9 @@ function clearForm(p){
   // Reset materials
   const tbody=document.getElementById(p+'MatBody');
   if(tbody){tbody.innerHTML='';addMatRow(p);}
+  // Auto-fill next request number
+  const numEl=document.getElementById(p+'ReqNum');
+  if(numEl) numEl.value=nextReqNum(p);
 }
 
 // ── DELETE ──
