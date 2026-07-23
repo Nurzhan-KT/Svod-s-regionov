@@ -154,6 +154,14 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px;min-width:1400px}
 .sr-grand td{background:#e5ecf8;font-weight:700;border-top:2px solid var(--navy)}
 .sv{display:block;font-weight:700}.sc{font-size:10.5px;color:var(--muted)}
 .scol-tot{background:#eef2fb!important;font-weight:700}
+.sr-detail td{background:#f8faff;font-size:12px;border-bottom:1px solid #e8edf5}
+.sr-detail td:first-child{color:var(--muted);font-weight:400}
+.sum-toggle{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;font-size:10px;background:rgba(0,48,135,.1);border-radius:4px;margin-right:6px;color:var(--navy);flex-shrink:0}
+.stbl tr.sr-status-row{cursor:pointer}.stbl tr.sr-status-row:hover td{filter:brightness(.94)}
+.sum-filterbar{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sum-filterbar label{font-size:11px;color:var(--muted);white-space:nowrap}
+.sum-filterbar input{padding:3px 8px;border:1px solid var(--border);border-radius:var(--r2);font-size:12px;font-family:inherit}
+.sum-filterbar input[type=text]{flex:1;min-width:160px}
 
 /* MISC */
 .section-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #dbeafe}
@@ -541,6 +549,13 @@ function buildSection(tab){
           <option value="cost">Стоимость, тг</option>
         </select>
       </div>
+    </div>
+    <div class="sum-filterbar">
+      <label>Период:</label>
+      <input type="date" id="sumDateFrom${p}" onchange="renderSummary('${p}')">
+      <span style="font-size:12px;color:var(--muted)">—</span>
+      <input type="date" id="sumDateTo${p}" onchange="renderSummary('${p}')">
+      <input type="text" id="sumMatFilter${p}" placeholder="🔍 Фильтр по материалу..." oninput="renderSummary('${p}')">
     </div>
     <div class="cardbody" style="padding:12px 14px">
       <div style="overflow-x:auto">
@@ -1029,13 +1044,37 @@ function fmtNum(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('ru'
 const RDTS_ORDER = ['АЛМАТЫ','АСТАНА','ВОСТОК','ЗАПАД','СЕВЕР','ЦЕНТР','ЮГ'];
 const STATUS_ORDER = ['Доставлен','в пути','Ждут транзитной авто'];
 
+const sumExpanded = {}; // tabId -> Set of expanded status strings
+
+function toggleSumDetail(p, rowEl){
+  const s = rowEl.dataset.s;
+  if(!sumExpanded[p]) sumExpanded[p] = new Set();
+  if(sumExpanded[p].has(s)) sumExpanded[p].delete(s);
+  else sumExpanded[p].add(s);
+  renderSummary(p);
+}
+
 function renderSummary(p){
   const hdrEl  = document.getElementById('sumHdr'+p);
   const bodyEl = document.getElementById('sumBody'+p);
   if(!hdrEl||!bodyEl) return;
 
-  const data   = tabData[p]||[];
-  const metric = document.getElementById('sumGroupBy'+p)?.value||'qty';
+  const metric    = document.getElementById('sumGroupBy'+p)?.value||'qty';
+  const dateFrom  = document.getElementById('sumDateFrom'+p)?.value||'';
+  const dateTo    = document.getElementById('sumDateTo'+p)?.value||'';
+  const matFilter = (document.getElementById('sumMatFilter'+p)?.value||'').toLowerCase().trim();
+
+  // Filter records by date range
+  let data = (tabData[p]||[]).filter(r=>{
+    if(dateFrom && (r.date||'') < dateFrom) return false;
+    if(dateTo   && (r.date||'') > dateTo)   return false;
+    return true;
+  });
+
+  // If material filter: keep only records containing a matching material
+  if(matFilter){
+    data = data.filter(r=>(r.materials||[]).some(m=>(m.name||'').toLowerCase().includes(matFilter)));
+  }
 
   if(!data.length){
     hdrEl.innerHTML  = '<th>Статус</th><th>Итого</th>';
@@ -1050,24 +1089,35 @@ function renderSummary(p){
       return (ia<0?99:ia)-(ib<0?99:ib);
     });
 
-  // Build pivot
-  const pivot = {};      // status -> col -> value
-  const colTot = {};     // col -> total
-  const rowTot = {};     // status -> total
+  // Build pivots
+  const pivot  = {};   // status -> col -> summary value (qty/cnt/cost)
+  const detail = {};   // status -> matName -> col -> qty (always qty for detail rows)
+  const colTot = {};
+  const rowTot = {};
   let grandTotal = 0;
 
   data.forEach(r=>{
     const s   = r.status||'—';
     const col = r.rdt||'—';
-    const qty = (r.materials||[]).reduce((acc,m)=>acc+Number(m.qty||0),0);
-    const cost= (r.materials||[]).reduce((acc,m)=>acc+Number(m.cost||0),0);
-    const val = metric==='cnt'?1 : metric==='cost'?cost : qty;
+    const mats = (r.materials||[]).filter(m=> !matFilter || (m.name||'').toLowerCase().includes(matFilter));
+
+    const qty  = mats.reduce((acc,m)=>acc+Number(m.qty||0),0);
+    const cost = mats.reduce((acc,m)=>acc+Number(m.cost||0),0);
+    const val  = metric==='cnt' ? 1 : metric==='cost' ? cost : qty;
 
     if(!pivot[s]) pivot[s]={};
     pivot[s][col] = (pivot[s][col]||0) + val;
     colTot[col]   = (colTot[col]||0) + val;
     rowTot[s]     = (rowTot[s]||0) + val;
     grandTotal   += val;
+
+    // Detail: always aggregate qty per material name
+    if(!detail[s]) detail[s]={};
+    mats.forEach(m=>{
+      const mn = m.name||'—';
+      if(!detail[s][mn]) detail[s][mn]={};
+      detail[s][mn][col] = (detail[s][mn][col]||0) + Number(m.qty||0);
+    });
   });
 
   const allStatuses = [
@@ -1077,6 +1127,7 @@ function renderSummary(p){
 
   const unit = metric==='cost'?' тг':metric==='cnt'?' зак.':'';
   function fv(n){ if(!n) return '<span style="color:#ccc">—</span>'; return Number(n).toLocaleString('ru')+unit; }
+  function fq(n){ if(!n) return '<span style="color:#ccc">—</span>'; return Number(n).toLocaleString('ru'); }
 
   function rowCls(s){
     if(s==='Доставлен') return 'sr-ok';
@@ -1086,17 +1137,38 @@ function renderSummary(p){
   }
 
   // Header
-  hdrEl.innerHTML = '<th>Статус</th>'
+  hdrEl.innerHTML = '<th style="min-width:200px">Статус / Материал</th>'
     + activeCols.map(c=>`<th>${c}</th>`).join('')
     + '<th class="scol-tot">Итого</th>';
 
-  // Rows
-  let html = allStatuses.map(s=>`
-    <tr class="${rowCls(s)}">
-      <td>${s==='—'?'<i style="color:var(--muted)">Без статуса</i>':s}</td>
+  const expSet = sumExpanded[p] || (sumExpanded[p] = new Set());
+  let html = '';
+
+  allStatuses.forEach(s=>{
+    const isExp  = expSet.has(s);
+    const icon   = isExp ? '▼' : '▶';
+    const label  = s==='—' ? '<i style="color:var(--muted)">Без статуса</i>' : s;
+    const safeS  = s.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+
+    html += `<tr class="${rowCls(s)} sr-status-row" onclick="toggleSumDetail('${p}',this)" data-s="${safeS}">
+      <td><span class="sum-toggle">${icon}</span>${label}</td>
       ${activeCols.map(c=>`<td>${fv(pivot[s][c])}</td>`).join('')}
       <td class="scol-tot"><strong>${fv(rowTot[s])}</strong></td>
-    </tr>`).join('');
+    </tr>`;
+
+    if(isExp && detail[s]){
+      const matNames = Object.keys(detail[s]).sort((a,b)=>a.localeCompare(b,'ru'));
+      matNames.forEach(mn=>{
+        const mc  = detail[s][mn];
+        const tot = Object.values(mc).reduce((a,b)=>a+b,0);
+        html += `<tr class="sr-detail">
+          <td style="padding-left:36px">↳ ${mn}</td>
+          ${activeCols.map(c=>`<td>${fq(mc[c])}</td>`).join('')}
+          <td class="scol-tot">${fq(tot)}</td>
+        </tr>`;
+      });
+    }
+  });
 
   // Grand total row
   html += `<tr class="sr-grand">
