@@ -2927,7 +2927,7 @@ function exportDrb(){
   });
 
   const dataRows=rows.map((r,i)=>{
-    const row=[i+1,r.reg];
+    const row=[i+1,dispReg(r.reg)];
     r.cols.forEach(c=>{row.push(c.cnt,fmt(c.sum),c.mgtCnt,fmt(c.mgtSum));});
     return row;
   });
@@ -3070,7 +3070,7 @@ function exportDrbS(){
   });
 
   const dataRows=rows.map((r,i)=>{
-    const row=[i+1,r.reg];
+    const row=[i+1,dispReg(r.reg)];
     r.cols.forEach(c=>{row.push(c.cnt,fmt(c.sum),c.mgtCnt,fmt(c.mgtSum));});
     return row;
   });
