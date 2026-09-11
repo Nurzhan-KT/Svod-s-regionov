@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>АО «Казахтелеком» — Складской аналитик</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#003087;--blue:#0055AB;--blue2:#0078D7;--pale:#EBF3FC;
+  --green:#1A6B2E;--green-bg:#E6F4EA;
+  --red:#B91C1C;--red-bg:#FEE2E2;
+  --amber:#92400E;--amber-bg:#FEF3C7;
+  --bg:#F0F4F9;--border:#D0D7DE;--text:#1F2328;--muted:#636C76;
+  --sh:0 1px 4px rgba(0,0,0,.08);--sh2:0 4px 16px rgba(0,0,0,.12);
+  --r:10px;--r2:6px;
+}
+html{font-size:14px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--blue2) 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 26px;height:58px;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,30,80,.3)}
+.hl{display:flex;align-items:center;gap:13px}
+.hicon{width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+.htitle{font-size:16px;font-weight:700}
+.hsub{font-size:11px;opacity:.8}
+
+.tabs{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--border);padding:0 20px;position:sticky;top:58px;z-index:150;overflow-x:auto}
+.tab{padding:13px 18px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tab.active{color:var(--navy);border-bottom-color:var(--blue2)}
+.tab:hover{color:var(--blue)}
+
+.wrap{max-width:1400px;margin:0 auto;padding:22px}
+.page{display:none}
+.page.active{display:block}
+
+.card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:18px}
+.card h2{font-size:15px;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3{font-size:13px;color:var(--navy);margin:14px 0 8px}
+
+.drop{border:2px dashed var(--border);border-radius:var(--r);padding:34px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}
+.drop:hover,.drop.drag{border-color:var(--blue2);background:var(--pale)}
+.drop input{display:none}
+.drop .big{font-size:32px;margin-bottom:8px}
+.uploadgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.checklist{border:1.5px solid var(--border);border-radius:5px;padding:6px 10px;background:#fff;min-width:170px}
+.checklist label{display:flex!important;align-items:center;gap:6px;font-size:12px;font-weight:400!important;text-transform:none!important;color:var(--text)!important;padding:3px 0;cursor:pointer;white-space:nowrap}
+.checklist input{width:auto!important}
+.pv-sub0 td{background:#FDF3D8!important;font-weight:700}
+.pv-sub1 td{background:#EAF3E3!important;font-weight:600}
+.drop-sm{padding:20px 10px}
+.drop-sm .big{font-size:24px;margin-bottom:4px}
+@media (max-width:800px){.uploadgrid{grid-template-columns:1fr}}
+
+.filelist{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.fileitem{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--pale);border-radius:var(--r2);font-size:12.5px}
+.fileitem .nm{font-weight:600;flex:1}
+.fileitem .sz{color:var(--muted)}
+.fileitem .rm{color:var(--red);cursor:pointer;font-weight:700;padding:0 4px}
+
+.btn{padding:9px 16px;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-primary{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-green{background:var(--green-bg);color:var(--green);border:1px solid #b8dfc2}
+.btn-outline{background:#fff;color:var(--navy);border:1.5px solid var(--border)}
+.btn-outline:hover{border-color:var(--blue2)}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+.stat{background:var(--pale);border-radius:var(--r2);padding:12px 14px}
+.stat .n{font-size:22px;font-weight:800;color:var(--navy)}
+.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.stat.warn .n{color:var(--amber)}
+.stat.bad .n{color:var(--red)}
+.stat.ok .n{color:var(--green)}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--pale);color:var(--navy);text-align:left;padding:8px 10px;font-weight:700;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0}
+td{padding:7px 10px;border-bottom:1px solid #eef1f4;white-space:nowrap}
+tr:hover td{background:#fafcff}
+.tblwrap{max-height:480px;overflow:auto;border:1px solid var(--border);border-radius:var(--r2)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-warn{background:var(--amber-bg);color:var(--amber)}
+.b-bad{background:var(--red-bg);color:var(--red)}
+input[type=text],input[type=number],select{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--blue2)}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.field{min-width:160px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.empty{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+.flagrow td{background:var(--amber-bg)!important}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:var(--r2);box-shadow:var(--sh2);font-size:13px;z-index:999;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--pale);border-radius:20px;padding:4px 10px;font-size:11.5px;margin:2px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hl">
+    <div class="hicon">КТ</div>
+    <div>
+      <div class="htitle">Складской аналитик</div>
+      <div class="hsub">АО «Казахтелеком» · накопление, сводные таблицы, прогноз ТМЦ</div>
+    </div>
+  </div>
+  <div id="syncStatus" style="font-size:11.5px;opacity:.85"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-page="upload">1. Загрузка отчётов</div>
+  <div class="tab" data-page="review">2. Проверка и словари</div>
+  <div class="tab" data-page="pivot">3. Сводные таблицы</div>
+  <div class="tab" data-page="forecast">4. Прогноз</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===================== PAGE: UPLOAD ===================== -->
+  <div class="page active" id="page-upload">
+    <div class="card">
+      <h2>📂 Загрузка Excel-отчётов</h2>
+      <p class="hint">Файлы (DRB / ODS / DTK и т.д.) кидайте в подходящее окно ниже. Инструмент читает лист <b>Sheet1</b> — сырую выгрузку из SAP (Склад, Завод, Материал, Партия, количество…). Остальные листы не нужны — все «жёлтые» поля (Тип склада, Регион, РДТ, Вендор, Частота, Цена) инструмент проставит сам на основании накопленных словарей.</p>
+      <p class="hint">Если в загрузке нет файла в окне «Наличие» — итоговый остаток будет рассчитан автоматически: <b>остаток на предыдущую дату + поступление − расход</b>.</p>
+      <div class="uploadgrid">
+        <div class="uploadzone">
+          <div class="drop drop-sm" data-ztype="nalichie">
+            <div class="big">📦</div>
+            <div><b>Наличие</b></div>
+            <div style="font-size:11px;margin-top:2px">остаток на дату среза</div>
+            <input type="file" accept=".xlsx,.xls" multiple>
+          </div>
+          <div class="filelist" id="fileList-nalichie"></div>
+        </div>
+        <div class="uploadzone">
+          <div class="drop drop-sm" data-ztype="postuplenie">
+            <div class="big">📥</div>
+            <div><b>Поступление</b></div>
+            <div style="font-size:11px;margin-top:2px">приход за период</div>
+            <input type="file" accept=".xlsx,.xls" multiple>
+          </div>
+          <div class="filelist" id="fileList-postuplenie"></div>
+        </div>
+        <div class="uploadzone">
+          <div class="drop drop-sm" data-ztype="raskhod">
+            <div class="big">📤</div>
+            <div><b>Расход</b></div>
+            <div style="font-size:11px;margin-top:2px">списание/выдача за период</div>
+            <input type="file" accept=".xlsx,.xls" multiple>
+          </div>
+          <div class="filelist" id="fileList-raskhod"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn btn-primary" id="btnProcess" disabled>⚙️ Обработать файлы</button>
+      </div>
+    </div>
+
+    <div class="card" id="resultsCard" style="display:none">
+      <h2>📊 Результат обработки</h2>
+      <div class="stats" id="statsBox"></div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn btn-outline btn-sm" onclick="showPage('review')">➡ Перейти к проверке словарей</button>
+        <button class="btn btn-green btn-sm" onclick="exportEnriched()">📥 Экспорт обогащённой таблицы (Excel)</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveSnapshot" onclick="saveSnapshot()">💾 Сохранить снимок в историю (для прогноза)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PAGE: REVIEW ===================== -->
+  <div class="page" id="page-review">
+    <div class="card">
+      <h2>🔎 Строки, требующие классификации</h2>
+      <p class="hint">Здесь показаны не строки, а <b>уникальные</b> склады/партии, которые встретились впервые. Один раз укажите значение — и оно применится ко всем строкам с этим кодом сейчас и в будущих загрузках (сохраняется в общий словарь).</p>
+      <h3>Склады с неопределённым регионом</h3>
+      <div class="tblwrap" id="unresolvedRegionsBox"><div class="empty">Нет данных — сначала обработайте файл на вкладке «Загрузка»</div></div>
+      <h3>Партии без вендора/частоты/цены (только для отслеживаемых материалов)</h3>
+      <div class="tblwrap" id="unresolvedPartiyaBox"><div class="empty">—</div></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="applyReviewAndReclassify()">✅ Применить и пересчитать</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚠️ Расхождения (тип склада по коду не совпадает с названием)</h2>
+      <p class="hint">Правило применяется строго (код склада: начинается с «0» → ЦС, с «1» → МОЛ). Здесь просто список случаев, где название склада намекает на другое — для ручной проверки, ничего не меняется автоматически.</p>
+      <div class="tblwrap" id="discrepBox"><div class="empty">—</div></div>
+    </div>
+
+    <div class="card">
+      <h2>📚 Словари (накопленная база)</h2>
+      <div class="row" style="margin-bottom:10px">
+        <div class="field" style="min-width:220px">
+          <label>Показать словарь</label>
+          <select id="dictSelect" onchange="renderDict()">
+            <option value="zavod">Завод → Регион</option>
+            <option value="override">Ручные привязки склада → Регион</option>
+            <option value="partiya">Партия → Вендор/Частота/Цена</option>
+            <option value="spp">СПП-элемент → Наименование СПП</option>
+            <option value="ont">Отслеживаемые материалы (Вендор/Частота/Цена)</option>
+          </select>
+        </div>
+      </div>
+      <div class="tblwrap" id="dictBox"></div>
+    </div>
+  </div>
+
+  <!-- ===================== PAGE: PIVOT ===================== -->
+  <div class="page" id="page-pivot">
+    <div class="card">
+      <h2>📋 Сводная таблица</h2>
+      <p class="hint">Строится по строкам, обработанным на вкладке «Загрузка» (текущая загрузка в памяти браузера). Для строк/столбцов/значений можно отметить <b>несколько</b> полей — они объединятся через «/» в порядке, в котором перечислены в списке.</p>
+      <div class="row" style="align-items:start">
+        <div class="field"><label>Тип данных</label>
+          <select id="pvType">
+            <option value="nalichie">Наличие (остаток)</option>
+            <option value="postuplenie">Поступление (приход)</option>
+            <option value="raskhod">Расход</option>
+            <option value="">Все вместе (не рекомендуется смешивать)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Строки (можно несколько)</label>
+          <div class="checklist" id="pvRowFields"></div>
+        </div>
+        <div class="field">
+          <label>Столбцы (можно несколько)</label>
+          <div class="checklist" id="pvColFields"></div>
+        </div>
+        <div class="field">
+          <label>Значение (можно несколько)</label>
+          <div class="checklist" id="pvValFields"></div>
+        </div>
+        <div class="field" style="min-width:140px"><label>Агрегация</label>
+          <select id="pvAgg"><option value="sum">Сумма</option><option value="count">Количество строк</option></select>
+        </div>
+        <button class="btn btn-primary" onclick="buildPivot()">Построить</button>
+        <button class="btn btn-green" onclick="exportPivot()">📥 Экспорт в Excel</button>
+      </div>
+      <div class="tblwrap" id="pivotBox" style="margin-top:16px"><div class="empty">Настройте параметры и нажмите «Построить»</div></div>
+    </div>
+  </div>
+
+  <!-- ===================== PAGE: FORECAST ===================== -->
+  <div class="page" id="page-forecast">
+    <div class="card">
+      <h2>📈 Прогноз</h2>
+      <p class="hint">Прогноз строится по <b>сохранённым снимкам</b> (кнопка «Сохранить снимок» на вкладке «Загрузка»). Чем больше периодов накоплено, тем точнее. Как минимум нужно 2 снимка.</p>
+      <div class="row">
+        <div class="field"><label>Разрез</label>
+          <select id="fcDim"><option value="region">Регион</option><option value="rdt">РДТ (зона)</option><option value="sklad_name">Склад</option></select>
+        </div>
+        <div class="field"><label>Материал</label><select id="fcMaterial"></select></div>
+        <button class="btn btn-primary" onclick="buildForecast()">Построить прогноз</button>
+      </div>
+      <div id="snapshotsInfo" class="hint" style="margin-top:10px"></div>
+      <div class="tblwrap" id="forecastBox" style="margin-top:16px"><div class="empty">—</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// FIREBASE (тот же проект, что и остальные инструменты компании)
+// ══════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDAf57D5gqcoVQJTVhygWL8CZZfVjMAC6Q",
+  authDomain: "svod-s-regionov.firebaseapp.com",
+  projectId: "svod-s-regionov",
+  storageBucket: "svod-s-regionov.firebasestorage.app",
+  messagingSenderId: "883313324410",
+  appId: "1:883313324410:web:a5854026fefe3e6055a6c3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COL_ZAVOD = 'sklad_zavod_region';
+const COL_OVERRIDE = 'sklad_region_override';
+const COL_PARTIYA = 'sklad_partiya';
+const COL_SPP = 'sklad_spp_names';
+const COL_SNAPSHOT = 'sklad_snapshots';
+const COL_CONFIG = 'sklad_config';
+
+// ══════════════════════════════════════════════════════════════
+// СТАРТОВЫЕ СЛОВАРИ — извлечены из реальных файлов DRB/ODS/DTK
+// (na 14.08.2026), листы «Лист1». Используются, пока в Firestore
+// не появятся накопленные/исправленные значения.
+// ══════════════════════════════════════════════════════════════
+
+// Зона (РДТ) по региону — совпадает с таблицей CITIES из index.html
+const ZONE_BY_REGION = {
+  'Астана':'Центр','Кокшетау':'Центр','Караганда':'Центр','Жезказган':'Центр',
+  'Шымкент':'Юг','Тараз':'Юг','Кызылорда':'Юг','Туркестан':'Юг',
+  'Атырау':'Запад','Актау':'Запад','Актобе':'Запад','Уральск':'Запад',
+  'Костанай':'Север','Петропавловск':'Север',
+  'Семей':'Восток','Павлодар':'Восток','У-ка':'Восток',
+  'Алматы':'Алматы','Алм.Регион':'Алматы','Талдыкорган':'Алматы'
+};
+
+// Завод (код 2-й/3-й буквой) → Регион. null = неоднозначно, определять по названию склада.
+const SEED_ZAVOD_REGION = {
+  '25AA':'Астана','25BA':'Кокшетау','25CA':'Караганда','25DA':'Алматы','25EA':'Алм.Регион',
+  '25FA':'У-ка','25GA':'Павлодар','25HA':'Актобе','25IA':'Атырау','25JA':'Уральск',
+  '25KA':'Актау','25LA':'Костанай','25MA':'Петропавловск','25NA':'Шымкент','25PA':'Тараз',
+  '25QA':'Кызылорда','25RA':'Семей','25SA':null,'25TA':'Жезказган',
+  '33AA':'Астана','33BA':'Кокшетау','33CA':'Караганда','33DA':'Алматы','33EA':'Алм.Регион',
+  '33FA':'У-ка','33GA':'Павлодар','33HA':'Актобе','33IA':'Атырау','33JA':'Уральск',
+  '33KA':'Актау','33LA':'Костанай','33MA':'Петропавловск','33NA':'Шымкент','33OA':'Туркестан',
+  '33PA':'Тараз','33QA':'Кызылорда','33RA':'Семей','33SA':'Талдыкорган','33TA':'Жезказган'
+};
+
+// Ключевые слова в названии склада → Регион (проверяется ДО словаря по Заводу — точнее для
+// центральных/ДТК складов и складов с "ZA"-кодом завода, где один код завода покрывает
+// несколько регионов). ВНИМАНИЕ: "Акмола" сюда намеренно не включена — в реальных данных
+// этот код одновременно встречается и как обозначение Акмолинской области (→Кокшетау),
+// и в одном ДТК-складе как историческое имя Астаны — слишком неоднозначно для авто-правила,
+// такие случаи заведены как ручные привязки (sklad_region_override) ниже.
+const REGION_KEYWORDS = [
+  ['Кызылорда', ['кызылорд']],
+  ['Петропавловск', ['петропавл']],
+  ['Талдыкорган', ['талдыкорг']],
+  ['Костанай', ['костана']],
+  ['Караганда', ['караганд']],
+  ['Кокшетау', ['кокшет']],
+  ['Павлодар', ['павлодар']],
+  ['Атырау', ['атырау']],
+  ['Актобе', ['актобе','актюб']],
+  ['Уральск', ['уральск']],
+  ['Актау', ['актау']],
+  ['Шымкент', ['шымкент','чимкент']],
+  ['Тараз', ['тараз']],
+  ['Семей', ['семей','семипалат']],
+  ['Жезказган', ['жезказган','жезказг']],
+  ['Туркестан', ['туркестан','түркістан']],
+  ['У-ка', ['у-ка','усть-кам','ускемен','өскемен','оскемен']],
+  ['Астана', ['астана','нурсултан','нур-султан']],
+  ['Алм.Регион', ['алм.регион','алм рег','алм.обл','алматинск']],
+  ['Алматы', ['алматы','алма-ата']]
+];
+
+// Ручные привязки код завода_склада → Регион. Начальный набор — склады из файла DTK
+// (там у всех один код завода 3701, регион угадать по коду невозможно). Значения для
+// складов "Склад 1/3/4 ДТК", "Спец.лабор." и "Спец.отд.АХО" — обоснованное предположение
+// (кластер того же комплекса, что подтверждённый Алматы), ПРОВЕРЬТЕ и поправьте на вкладке
+// «Проверка и словари» при первом использовании.
+const SEED_OVERRIDE = {
+  '3701_0001':'Алматы', '3701_0002':'Алматы', '3701_0003':'Алматы', '3701_0004':'Алматы',
+  '3701_0007':'Астана', '3701_1019':'Алматы', '3701_1022':'Алматы', '3701_1001':'Алматы',
+  '3701_1024':'Астана', '3701_1027':'Алматы', '3701_1004':'Алматы'
+};
+
+// Материалы, для которых имеет смысл Вендор/Частота/Цена (ONT/GPON-оборудование).
+const SEED_ONT_MATERIALS = ['123705064','123705167','123706132','123706141','123706142','141200012'];
+
+// Определение типа по имени файла — используется только для мягкого предупреждения,
+// если файл, похоже, положили не в то окно (окно — основной источник истины для типа).
+function guessReportType(name){
+  const n = name.toLowerCase();
+  if (/расход|списан|выбыт|выдач/.test(n)) return 'raskhod';
+  if (/приход|поступ|получен/.test(n)) return 'postuplenie';
+  return 'nalichie';
+}
+
+// Партия → {vendor,freq,price} — накоплено из истории DRB/ODS/DTK (89 партий).
+const SEED_PARTIYA = [{"partiya":"0000389408","vendor":"Nokia","freq":"5","price":37466.52},{"partiya":"0000391520","vendor":"Nokia","freq":"5","price":41962.5},{"partiya":"0000406462","vendor":"Nokia","freq":"5","price":37513.42},{"partiya":"0000412420","vendor":"Nokia","freq":"1 портовая","price":21780},{"partiya":"0000392501","vendor":"Calix","freq":"5","price":38177.68},{"partiya":"0000389022","vendor":"HUAWEI","freq":"5","price":37006.39},{"partiya":"0000412419","vendor":"HUAWEI","freq":"1 портовая","price":21780},{"partiya":"0000391257","vendor":"Nokia","freq":"5","price":37466.52},{"partiya":"0000389021","vendor":"HUAWEI","freq":"5","price":36630},{"partiya":"0000390930","vendor":"HUAWEI","freq":"5","price":36630},{"partiya":"0000411944","vendor":"HUAWEI","freq":"1 портовая","price":21780},{"partiya":"0000412364","vendor":"Nokia","freq":"5","price":36630},{"partiya":"0000415993","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415994","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415995","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415996","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415997","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415998","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000415999","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000416000","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000416001","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000416002","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000416003","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000416004","vendor":"HUAWEI","freq":"5","price":37000},{"partiya":"0000387232","vendor":"Nokia","freq":"1 портовая","price":21780},{"partiya":"0000392502","vendor":"Calix","freq":"5","price":37959},{"partiya":"0000391255","vendor":"Nokia","freq":"1 портовая","price":21714},{"partiya":"0000389023","vendor":"HUAWEI","freq":"5","price":36812.88},{"partiya":"0000387360","vendor":"HUAWEI","freq":"1 портовая","price":21680},{"partiya":"0000389020","vendor":"HUAWEI","freq":"5","price":36867.89},{"partiya":"0000390931","vendor":"HUAWEI","freq":"1 портовая","price":21955.51},{"partiya":"0000389032","vendor":"HUAWEI","freq":"5","price":37356.38},{"partiya":"0000389031","vendor":"HUAWEI","freq":"5","price":36903.8},{"partiya":"0000412416","vendor":"ZTE","freq":"5","price":36869.53},{"partiya":"0000412417","vendor":"ZTE","freq":"1 портовая","price":21780},{"partiya":"0000391268","vendor":"Nokia","freq":"1 портовая","price":21714},{"partiya":"0000411985","vendor":"Nokia","freq":"1 портовая","price":21935.55},{"partiya":"0000391099","vendor":"Nokia","freq":"5","price":37466.52},{"partiya":"0000356926","vendor":"HUAWEI","freq":"5","price":35438.65},{"partiya":"0000356923","vendor":"HUAWEI","freq":"5","price":35415.3},{"partiya":"0000311460","vendor":"Calix","freq":"2.4","price":32898.78},{"partiya":"000369376","vendor":"Calix","freq":"5","price":37260},{"partiya":"0000344538","vendor":"HUAWEI","freq":"5","price":34750},{"partiya":"0000356924","vendor":"HUAWEI","freq":"5","price":34848.5},{"partiya":"0000360317","vendor":"Calix","freq":"5","price":39926.19},{"partiya":"0000357349","vendor":"HUAWEI","freq":"5","price":36577.83},{"partiya":"0000356957","vendor":"HUAWEI","freq":"5","price":34845.7},{"partiya":"0000344540","vendor":"HUAWEI","freq":"2.4","price":35106.6},{"partiya":"0000356925","vendor":"HUAWEI","freq":"5","price":35218.52},{"partiya":"0000356961","vendor":"HUAWEI","freq":"5","price":34873.49},{"partiya":"0000357348","vendor":"HUAWEI","freq":"5","price":34873.49},{"partiya":"0000357355","vendor":"HUAWEI","freq":"5","price":34623.49},{"partiya":"0000369372","vendor":"Calix","freq":"5","price":37882.28},{"partiya":"0000289499","vendor":"HUAWEI","freq":"без радиомодуля","price":25843.88},{"partiya":"0000357335","vendor":"HUAWEI","freq":"5","price":34911.65},{"partiya":"0000368207","vendor":"Calix","freq":"5","price":37535.33},{"partiya":"0000369373","vendor":"Calix","freq":"5","price":37424.61},{"partiya":"0000288580","vendor":"Calix","freq":"2.4","price":32800.32},{"partiya":"0000356140","vendor":"Calix","freq":"5","price":35100},{"partiya":"0000356967","vendor":"HUAWEI","freq":"5","price":35178.55},{"partiya":"0000357336","vendor":"HUAWEI","freq":"5","price":34974.16},{"partiya":"0000357329","vendor":"HUAWEI","freq":"5","price":35375.4},{"partiya":"0000356963","vendor":"HUAWEI","freq":"5","price":34623.49},{"partiya":"0000357107","vendor":"Calix","freq":"5","price":35335.61},{"partiya":"0000389908","vendor":"HUAWEI","freq":"5","price":32620},{"partiya":"0000391479","vendor":"Nokia","freq":"1 портовая","price":24393.6},{"partiya":"0000360318","vendor":"Nokia","freq":"5","price":35075},{"partiya":"0000412394","vendor":"Nokia","freq":"5","price":42490.8},{"partiya":"0000389386","vendor":"Nokia","freq":"1 портовая","price":21936.74},{"partiya":"0000334977","vendor":"Calix","freq":"2.4","price":34861.29},{"partiya":"0000287087","vendor":"Calix","freq":"2.4","price":32799.81},{"partiya":"0000302964","vendor":"Calix","freq":"2.4","price":32991.75},{"partiya":"0000369366","vendor":"Calix","freq":"5","price":37260},{"partiya":"0000369370","vendor":"Calix","freq":"5","price":37396.44},{"partiya":"0000346184","vendor":"Calix","freq":"2.4","price":35090.18},{"partiya":"0000291507","vendor":"Calix","freq":"2.4","price":33368.88},{"partiya":"0000391466","vendor":"HUAWEI","freq":"5","price":41025.6},{"partiya":"0000392088","vendor":"Calix","freq":"1 портовая","price":24638.88},{"partiya":"0000390929","vendor":"HUAWEI","freq":"5","price":36630},{"partiya":"0000356955","vendor":"HUAWEI","freq":"5","price":35097.78},{"partiya":"0000357331","vendor":"HUAWEI","freq":"5","price":35106.77},{"partiya":"0000387662","vendor":"HUAWEI","freq":"1 портовая","price":24614.3},{"partiya":"0000391461","vendor":"HUAWEI","freq":"1 портовая","price":24726.3},{"partiya":"0000406868","vendor":"Nokia","freq":"5","price":42015.03},{"partiya":"0000369367","vendor":"Calix","freq":"5","price":37432},{"partiya":"0000391258","vendor":"Nokia","freq":"5","price":37466.52},{"partiya":"0000411937","vendor":"ZTE","freq":"5","price":36630},{"partiya":"0000411946","vendor":"ZTE","freq":"1 портовая","price":21780},{"partiya":"0000411955","vendor":"Nokia","freq":"5","price":36630}];
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let files = [];               // {name,label,arrayBuffer}
+let dictZavod = {...SEED_ZAVOD_REGION};
+let dictOverride = {...SEED_OVERRIDE};
+let dictPartiya = {};         // partiya -> {vendor,freq,price}
+let dictSpp = {};             // sppCode -> name
+let ontMaterials = new Set(SEED_ONT_MATERIALS);
+SEED_PARTIYA.forEach(p => dictPartiya[p.partiya] = {vendor:p.vendor, freq:p.freq, price:p.price});
+
+let rows = [];                 // enriched rows from last processing
+let unresolvedRegions = {};    // key(zavod_sklad) -> {zavod,sklad,name,count}
+let unresolvedPartiya = {};    // partiya -> {name,material,count}
+let discrepancies = [];
+let dictLoaded = false;
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._to); t._to = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ══════════════════════════════════════════════════════════════
+// LOAD/SAVE DICTIONARIES FROM FIRESTORE (merge on top of seeds)
+// ══════════════════════════════════════════════════════════════
+async function loadDictionaries(){
+  const statusEl = document.getElementById('syncStatus');
+  statusEl.innerHTML = '<span class="spinner"></span>Синхронизация словарей…';
+  try{
+    const [zSnap, oSnap, pSnap, sSnap, cSnap] = await Promise.all([
+      db.collection(COL_ZAVOD).get(),
+      db.collection(COL_OVERRIDE).get(),
+      db.collection(COL_PARTIYA).get(),
+      db.collection(COL_SPP).get(),
+      db.collection(COL_CONFIG).doc('ont_materials').get()
+    ]);
+    zSnap.forEach(d => dictZavod[d.id] = d.data().region);
+    oSnap.forEach(d => dictOverride[d.id] = d.data().region);
+    pSnap.forEach(d => dictPartiya[d.id] = d.data());
+    sSnap.forEach(d => dictSpp[d.id] = d.data().name);
+    if (cSnap.exists && Array.isArray(cSnap.data().codes)) {
+      ontMaterials = new Set(cSnap.data().codes);
+    }
+    statusEl.textContent = `✅ Словари синхронизированы (партий: ${Object.keys(dictPartiya).length})`;
+  }catch(e){
+    console.error('loadDictionaries error', e);
+    statusEl.textContent = '⚠️ Firestore недоступен — работаю на стартовых словарях (без накопления)';
+  }
+  dictLoaded = true;
+}
+
+function sppDocId(spp){ return encodeURIComponent(spp||'').slice(0,300) || '_empty'; }
+
+// ══════════════════════════════════════════════════════════════
+// FILE HANDLING — три отдельных окна (Наличие / Поступление / Расход),
+// тип файла определяется тем, в какое окно его положили.
+// ══════════════════════════════════════════════════════════════
+document.querySelectorAll('.drop-sm').forEach(zone=>{
+  const type = zone.dataset.ztype;
+  const input = zone.querySelector('input[type=file]');
+  zone.addEventListener('click', ()=>input.click());
+  zone.addEventListener('dragover', e=>{e.preventDefault(); zone.classList.add('drag');});
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('drag');
+    handleFiles(e.dataTransfer.files, type);
+  });
+  input.addEventListener('change', e=>{ handleFiles(e.target.files, type); e.target.value=''; });
+});
+
+function handleFiles(fileListObj, type){
+  Array.from(fileListObj).forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const guessed = guessReportType(f.name);
+      files.push({name:f.name, label:f.name.replace(/\.(xlsx|xls)$/i,''), arrayBuffer:ev.target.result, size:f.size, type, mismatch: guessed!==type});
+      renderFileList();
+    };
+    reader.readAsArrayBuffer(f);
+  });
+}
+
+function renderFileList(){
+  ['nalichie','postuplenie','raskhod'].forEach(type=>{
+    const box = document.getElementById('fileList-'+type);
+    const list = files.map((f,i)=>({f,i})).filter(x=>x.f.type===type);
+    box.innerHTML = list.map(({f,i})=>`
+      <div class="fileitem">
+        <span>📄</span><span class="nm">${f.name}</span>
+        <span class="sz">${(f.size/1024/1024).toFixed(2)} МБ</span>
+        ${f.mismatch ? '<span class="badge b-warn" title="Название файла намекает на другой тип — проверьте, в то ли окно положили">⚠ проверьте тип</span>' : ''}
+        <span class="rm" onclick="removeFile(${i})">✕</span>
+      </div>`).join('');
+  });
+  document.getElementById('btnProcess').disabled = files.length===0;
+}
+function removeFile(i){ files.splice(i,1); renderFileList(); }
+
+// ══════════════════════════════════════════════════════════════
+// PARSE + CLASSIFY
+// ══════════════════════════════════════════════════════════════
+function extractDateFromName(name){
+  const m = name.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return new Date().toISOString().slice(0,10);
+}
+
+function parseSheet1(wb){
+  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
+  const ws = wb.Sheets[wsName];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  if (!aoa.length) return [];
+  const header = aoa[0].map(h=>String(h||'').trim());
+  const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
+  const cIdx = {
+    wh_name: idx('Обозначение склада'), wh_code: idx('Склад'), zavod: idx('Завод'),
+    material: idx('Материал'), material_name: idx('Краткий текст'), unit: idx('Базовая ЕИ'),
+    qty: idx('СвобИспольз'), value: idx('Ст-ть'), partiya: idx('Партия'),
+    spp: idx('СПП-элемент'), tab: idx('Таб'), fio: idx('ФИО')
+  };
+  const out = [];
+  for (let r=1; r<aoa.length; r++){
+    const row = aoa[r];
+    if (!row || row.every(c=>c==='' || c==null)) continue;
+    out.push({
+      wh_name: String(row[cIdx.wh_name]||'').trim(),
+      wh_code: String(row[cIdx.wh_code]||'').trim().padStart(4,'0'),
+      zavod: String(row[cIdx.zavod]||'').trim(),
+      material: String(row[cIdx.material]||'').trim(),
+      material_name: String(row[cIdx.material_name]||'').trim(),
+      unit: String(row[cIdx.unit]||'').trim(),
+      qty: Number(row[cIdx.qty])||0,
+      value: Number(row[cIdx.value])||0,
+      partiya: String(row[cIdx.partiya]||'').trim(),
+      spp: String(row[cIdx.spp]||'').trim(),
+      tab: String(row[cIdx.tab]||'').trim(),
+      fio: String(row[cIdx.fio]||'').trim()
+    });
+  }
+  return out;
+}
+
+function resolveRegion(r){
+  const key = `${r.zavod}_${r.wh_code}`;
+  if (dictOverride[key]) return {region:dictOverride[key], src:'override'};
+  const nameLower = r.wh_name.toLowerCase();
+  for (const [region, kws] of REGION_KEYWORDS){
+    if (kws.some(k => nameLower.includes(k))) return {region, src:'keyword'};
+  }
+  const z = dictZavod[r.zavod];
+  if (z) return {region:z, src:'zavod'};
+  return {region:null, src:'unresolved'};
+}
+
+function resolveTip(r){
+  const prefix = r.wh_code.charAt(0);
+  const tip = prefix==='0' ? 'ЦС' : (prefix==='1' ? 'МОЛ' : 'НЕИЗВЕСТНО');
+  const nameLower = r.wh_name.toLowerCase();
+  let flag = false;
+  if (nameLower.includes('цс') && tip!=='ЦС') flag = true;
+  if ((nameLower.includes('мол') || nameLower.includes('дир')) && tip==='ЦС' && !nameLower.includes('цс')) flag = true;
+  return {tip, flag};
+}
+
+function classifyAll(){
+  rows = [];
+  unresolvedRegions = {};
+  unresolvedPartiya = {};
+  discrepancies = [];
+
+  files.forEach(f=>{
+    const wb = XLSX.read(f.arrayBuffer, {type:'array'});
+    const date = extractDateFromName(f.name);
+    const parsed = parseSheet1(wb);
+    parsed.forEach(r=>{
+      const {tip, flag} = resolveTip(r);
+      const {region} = resolveRegion(r);
+      const rdt = region ? (ZONE_BY_REGION[region]||null) : null;
+      let vendor='', freq='', price='';
+      const isOnt = ontMaterials.has(r.material);
+      if (isOnt){
+        const d = dictPartiya[r.partiya];
+        if (d){ vendor=d.vendor||''; freq=d.freq||''; price=d.price||''; }
+        else if (r.partiya){
+          const k = r.partiya;
+          if (!unresolvedPartiya[k]) unresolvedPartiya[k] = {partiya:k, material_name:r.material_name, count:0, sample_wh:r.wh_name};
+          unresolvedPartiya[k].count++;
+        }
+      }
+      const sppName = dictSpp[r.spp] || '';
+
+      if (!region){
+        const k = `${r.zavod}_${r.wh_code}`;
+        if (!unresolvedRegions[k]) unresolvedRegions[k] = {zavod:r.zavod, wh_code:r.wh_code, wh_name:r.wh_name, count:0};
+        unresolvedRegions[k].count++;
+      }
+      if (flag){
+        discrepancies.push({wh_name:r.wh_name, wh_code:r.wh_code, tip});
+      }
+
+      rows.push({
+        source: f.label, date, report_type: f.type || 'nalichie',
+        sklad_name: r.wh_name, sklad_code: r.wh_code, zavod: r.zavod,
+        material: r.material, material_name: r.material_name,
+        tip, region, rdt, vendor, freq, price, unit: r.unit,
+        qty: r.qty, value: r.value, partiya: r.partiya, spp: r.spp, spp_name: sppName,
+        tab: r.tab, fio: r.fio
+      });
+    });
+  });
+
+  // dedupe discrepancies/unresolved for display
+  discrepancies = discrepancies.filter((d,i,arr)=>arr.findIndex(x=>x.wh_code===d.wh_code && x.wh_name===d.wh_name)===i);
+}
+
+function renderStats(){
+  const total = rows.length;
+  const regionMissing = Object.values(unresolvedRegions).reduce((s,x)=>s+x.count,0);
+  const partiyaMissing = Object.values(unresolvedPartiya).reduce((s,x)=>s+x.count,0);
+  const ontRows = rows.filter(r=>ontMaterials.has(r.material)).length;
+  const nalCount = rows.filter(r=>r.report_type==='nalichie').length;
+  const inCount = rows.filter(r=>r.report_type==='postuplenie').length;
+  const outCount = rows.filter(r=>r.report_type==='raskhod').length;
+  const box = document.getElementById('statsBox');
+  box.innerHTML = `
+    <div class="stat"><div class="n">${total.toLocaleString('ru-RU')}</div><div class="l">Строк обработано</div></div>
+    <div class="stat"><div class="n">${files.length}</div><div class="l">Файлов</div></div>
+    <div class="stat"><div class="n">${nalCount.toLocaleString('ru-RU')}</div><div class="l">Строк «Наличие»</div></div>
+    <div class="stat"><div class="n">${inCount.toLocaleString('ru-RU')}</div><div class="l">Строк «Поступление»</div></div>
+    <div class="stat"><div class="n">${outCount.toLocaleString('ru-RU')}</div><div class="l">Строк «Расход»</div></div>
+    <div class="stat ${Object.keys(unresolvedRegions).length?'warn':'ok'}"><div class="n">${Object.keys(unresolvedRegions).length}</div><div class="l">Складов без региона (${regionMissing} стр.)</div></div>
+    <div class="stat ${Object.keys(unresolvedPartiya).length?'warn':'ok'}"><div class="n">${Object.keys(unresolvedPartiya).length}</div><div class="l">Партий без вендора (${partiyaMissing} стр.)</div></div>
+    <div class="stat"><div class="n">${ontRows.toLocaleString('ru-RU')}</div><div class="l">Строк ONT-оборудования</div></div>
+    <div class="stat ${discrepancies.length?'warn':'ok'}"><div class="n">${discrepancies.length}</div><div class="l">Расхождений тип/название</div></div>
+  `;
+  document.getElementById('resultsCard').style.display='block';
+}
+
+document.getElementById('btnProcess').addEventListener('click', async ()=>{
+  if (!dictLoaded) await loadDictionaries();
+  classifyAll();
+  renderStats();
+  renderReviewTables();
+  renderDict();
+  populateForecastMaterials();
+  toast('Обработка завершена');
+});
+
+// ══════════════════════════════════════════════════════════════
+// REVIEW PAGE
+// ══════════════════════════════════════════════════════════════
+function renderReviewTables(){
+  const rBox = document.getElementById('unresolvedRegionsBox');
+  const list1 = Object.values(unresolvedRegions);
+  if (!list1.length){
+    rBox.innerHTML = '<div class="empty">✅ Все склады успешно определены</div>';
+  } else {
+    rBox.innerHTML = `<table><thead><tr><th>Завод</th><th>Код склада</th><th>Название склада</th><th>Строк</th><th>Указать регион</th></tr></thead><tbody>
+      ${list1.map((u,i)=>`<tr class="flagrow">
+        <td>${u.zavod}</td><td>${u.wh_code}</td><td>${u.wh_name}</td><td>${u.count}</td>
+        <td><select id="rg_${i}" data-zavod="${u.zavod}" data-sklad="${u.wh_code}">
+          <option value="">— выбрать —</option>
+          ${Object.keys(ZONE_BY_REGION).map(r=>`<option value="${r}">${r}</option>`).join('')}
+        </select></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  const pBox = document.getElementById('unresolvedPartiyaBox');
+  const list2 = Object.values(unresolvedPartiya);
+  if (!list2.length){
+    pBox.innerHTML = '<div class="empty">✅ Все партии по отслеживаемым материалам определены</div>';
+  } else {
+    pBox.innerHTML = `<table><thead><tr><th>Партия</th><th>Материал</th><th>Пример склада</th><th>Строк</th><th>Вендор</th><th>Частота/тип</th><th>Цена</th></tr></thead><tbody>
+      ${list2.map((u,i)=>`<tr class="flagrow">
+        <td>${u.partiya}</td><td>${u.material_name}</td><td>${u.sample_wh}</td><td>${u.count}</td>
+        <td><input type="text" id="pv_${i}" data-partiya="${u.partiya}" placeholder="Nokia / HUAWEI / ZTE / Calix"></td>
+        <td><input type="text" id="pf_${i}" placeholder="5 / 1 портовая"></td>
+        <td><input type="number" id="pp_${i}" placeholder="0.00" step="0.01"></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  const dBox = document.getElementById('discrepBox');
+  if (!discrepancies.length){
+    dBox.innerHTML = '<div class="empty">Расхождений не найдено</div>';
+  } else {
+    dBox.innerHTML = `<table><thead><tr><th>Код склада</th><th>Название</th><th>Тип по правилу</th></tr></thead><tbody>
+      ${discrepancies.map(d=>`<tr><td>${d.wh_code}</td><td>${d.wh_name}</td><td><span class="badge b-warn">${d.tip}</span></td></tr>`).join('')}
+    </tbody></table>`;
+  }
+}
+
+async function applyReviewAndReclassify(){
+  const list1 = Object.values(unresolvedRegions);
+  const writes = [];
+  list1.forEach((u,i)=>{
+    const sel = document.getElementById(`rg_${i}`);
+    if (sel && sel.value){
+      const key = `${u.zavod}_${u.wh_code}`;
+      dictOverride[key] = sel.value;
+      writes.push(db.collection(COL_OVERRIDE).doc(key).set({region:sel.value, wh_name:u.wh_name, updatedAt:new Date().toISOString()}));
+    }
+  });
+  const list2 = Object.values(unresolvedPartiya);
+  list2.forEach((u,i)=>{
+    const vEl = document.getElementById(`pv_${i}`), fEl = document.getElementById(`pf_${i}`), pEl = document.getElementById(`pp_${i}`);
+    if (vEl && vEl.value.trim()){
+      const data = {vendor:vEl.value.trim(), freq:(fEl.value||'').trim(), price:pEl.value?Number(pEl.value):'', updatedAt:new Date().toISOString()};
+      dictPartiya[u.partiya] = data;
+      writes.push(db.collection(COL_PARTIYA).doc(u.partiya).set(data));
+    }
+  });
+  if (writes.length){
+    try{ await Promise.all(writes); toast(`Сохранено в словари: ${writes.length}`); }
+    catch(e){ console.error(e); toast('Ошибка сохранения в Firestore — изменения применены только локально'); }
+  } else {
+    toast('Нечего сохранять — заполните хотя бы одно поле');
+  }
+  classifyAll();
+  renderStats();
+  renderReviewTables();
+  renderDict();
+}
+
+function renderDict(){
+  const sel = document.getElementById('dictSelect').value;
+  const box = document.getElementById('dictBox');
+  if (sel==='zavod'){
+    const rowsHtml = Object.entries(dictZavod).sort().map(([k,v])=>`<tr><td>${k}</td><td>${v||'<span class="badge b-bad">не определено</span>'}</td></tr>`).join('');
+    box.innerHTML = `<table><thead><tr><th>Код завода</th><th>Регион</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  } else if (sel==='override'){
+    const rowsHtml = Object.entries(dictOverride).sort().map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    box.innerHTML = `<table><thead><tr><th>Завод_Склад</th><th>Регион</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  } else if (sel==='partiya'){
+    const entries = Object.entries(dictPartiya).sort();
+    const rowsHtml = entries.map(([k,v])=>`<tr><td>${k}</td><td>${v.vendor||''}</td><td>${v.freq||''}</td><td>${v.price||''}</td></tr>`).join('');
+    box.innerHTML = `<table><thead><tr><th>Партия</th><th>Вендор</th><th>Частота/тип</th><th>Цена</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="hint" style="padding:8px">Всего: ${entries.length}</div>`;
+  } else if (sel==='spp'){
+    const entries = Object.entries(dictSpp);
+    box.innerHTML = entries.length ? `<table><thead><tr><th>СПП-элемент</th><th>Название</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — названия СПП вводятся вручную аналитиком в обогащённой выгрузке</div>';
+  } else if (sel==='ont'){
+    box.innerHTML = `<table><thead><tr><th>Код материала</th></tr></thead><tbody>${[...ontMaterials].map(m=>`<tr><td>${m}</td></tr>`).join('')}</tbody></table>`;
+  }
+}
+document.getElementById('dictSelect')?.addEventListener('change', renderDict);
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL-ЭКСПОРТ (ExcelJS — с реальным форматированием: заливка,
+// границы, объединения, числовые форматы; xlsx.js стили не пишет)
+// ══════════════════════════════════════════════════════════════
+const XLS_HEADER_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FF003087'}};
+const XLS_HEADER_FONT = {bold:true, color:{argb:'FFFFFFFF'}};
+const XLS_SUB0_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFDF3D8'}};
+const XLS_SUB1_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEAF3E3'}};
+const XLS_GRAND_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FFD9E4F5'}};
+const XLS_BORDER = {top:{style:'thin',color:{argb:'FFD0D7DE'}}, bottom:{style:'thin',color:{argb:'FFD0D7DE'}}, left:{style:'thin',color:{argb:'FFD0D7DE'}}, right:{style:'thin',color:{argb:'FFD0D7DE'}}};
+
+async function downloadWorkbook(wb, filename){
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+function styleHeaderRow(row){
+  row.eachCell(c=>{ c.font = XLS_HEADER_FONT; c.fill = XLS_HEADER_FILL; c.border = XLS_BORDER; c.alignment = {vertical:'middle', wrapText:true}; });
+  row.height = 22;
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORT ENRICHED TABLE
+// ══════════════════════════════════════════════════════════════
+const REPORT_TYPE_LABEL = {nalichie:'Наличие', postuplenie:'Поступление', raskhod:'Расход'};
+async function exportEnriched(){
+  if (!rows.length){ toast('Сначала обработайте файлы'); return; }
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Обогащённые данные');
+  ws.columns = [
+    {header:'Источник', key:'source', width:14},
+    {header:'Тип данных', key:'report_type', width:13},
+    {header:'Дата отчёта', key:'date', width:12},
+    {header:'Обозначение склада', key:'sklad_name', width:22},
+    {header:'Склад', key:'sklad_code', width:8},
+    {header:'Завод', key:'zavod', width:8},
+    {header:'Тип склада', key:'tip', width:10},
+    {header:'Регион', key:'region', width:14},
+    {header:'РДТ', key:'rdt', width:9},
+    {header:'Материал', key:'material', width:13},
+    {header:'Краткий текст материала', key:'material_name', width:26},
+    {header:'Вендор', key:'vendor', width:10},
+    {header:'Частота, Ггц', key:'freq', width:13},
+    {header:'Цена', key:'price', width:12, style:{numFmt:'#,##0.00'}},
+    {header:'Базовая ЕИ', key:'unit', width:9},
+    {header:'Количество', key:'qty', width:12, style:{numFmt:'#,##0'}},
+    {header:'Ст-ть/своб.испол.', key:'value', width:16, style:{numFmt:'#,##0.00'}},
+    {header:'Партия', key:'partiya', width:13},
+    {header:'СПП-элемент', key:'spp', width:20},
+    {header:'Наименование СПП', key:'spp_name', width:28},
+    {header:'Таб№ МОЛ', key:'tab', width:10},
+    {header:'ФИО МОЛ', key:'fio', width:24}
+  ];
+  rows.forEach(r=>ws.addRow({
+    source:r.source, report_type:REPORT_TYPE_LABEL[r.report_type]||r.report_type, date:r.date,
+    sklad_name:r.sklad_name, sklad_code:r.sklad_code, zavod:r.zavod, tip:r.tip,
+    region:r.region||null, rdt:r.rdt||null, material:r.material, material_name:r.material_name,
+    vendor:r.vendor||null, freq:r.freq||null, price:r.price||null, unit:r.unit,
+    qty:r.qty, value:r.value, partiya:r.partiya, spp:r.spp||null, spp_name:r.spp_name||null,
+    tab:r.tab, fio:r.fio
+  }));
+  styleHeaderRow(ws.getRow(1));
+  ws.views = [{state:'frozen', ySplit:1}];
+  ws.autoFilter = {from:{row:1,column:1}, to:{row:1,column:ws.columns.length}};
+  await downloadWorkbook(wb, `Складской_аналитик_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// SNAPSHOT (история для прогноза) — с переносом остатков
+// ══════════════════════════════════════════════════════════════
+// Если в загрузке нет строк «Наличие» для какой-то позиции — остаток на эту дату
+// считается как: остаток из предыдущего сохранённого снимка + Поступление − Расход
+// за текущий период. Позиции, для которых в этой загрузке вообще ничего нет
+// (ни наличия, ни прихода/расхода), переносятся из предыдущего снимка без изменений.
+function entityKey(it){ return [it.region||'—', it.rdt||'—', it.sklad_name, it.material, it.material_name].join('|'); }
+
+async function saveSnapshot(){
+  if (!rows.length){ toast('Сначала обработайте файлы'); return; }
+  const date = rows[0].date; // все файлы одной загрузки обычно за одну дату
+
+  // 1) агрегируем текущую загрузку по позиции, раздельно по типу данных
+  const agg = {};
+  rows.forEach(r=>{
+    const key = entityKey({region:r.region, rdt:r.rdt, sklad_name:r.sklad_name, material:r.material, material_name:r.material_name});
+    if (!agg[key]) agg[key] = {region:r.region||'—', rdt:r.rdt||'—', sklad_name:r.sklad_name, material:r.material, material_name:r.material_name, nal_qty:0, nal_value:0, in_qty:0, out_qty:0, hasNal:false};
+    const e = agg[key];
+    if (r.report_type==='postuplenie') e.in_qty += r.qty;
+    else if (r.report_type==='raskhod') e.out_qty += r.qty;
+    else { e.nal_qty += r.qty; e.nal_value += r.value; e.hasNal = true; }
+  });
+
+  // 2) подтягиваем предыдущий (строго более ранней датой) сохранённый снимок как базу переноса
+  let prevMap = {};
+  try{
+    const snap = await db.collection(COL_SNAPSHOT).where('date','<',date).orderBy('date','desc').limit(1).get();
+    snap.forEach(d=>{
+      (d.data().items||[]).forEach(it=>{ prevMap[entityKey(it)] = it; });
+    });
+  }catch(e){ console.error('previous snapshot lookup failed', e); }
+
+  // 3) объединяем: то, что в текущей загрузке, плюс то, что было раньше и сейчас не тронуто
+  const allKeys = new Set([...Object.keys(prevMap), ...Object.keys(agg)]);
+  const items = [];
+  let reportedCount=0, carriedCount=0, untouchedCount=0;
+  allKeys.forEach(key=>{
+    const cur = agg[key];
+    const prev = prevMap[key];
+    if (cur){
+      const qty_in = cur.in_qty, qty_out = cur.out_qty;
+      let qty, value, source;
+      if (cur.hasNal){
+        qty = cur.nal_qty; value = cur.nal_value; source = 'report'; reportedCount++;
+      } else {
+        const prevQty = prev ? (prev.qty||0) : 0;
+        qty = prevQty + qty_in - qty_out;
+        value = prev ? (prev.value||0) : 0;
+        source = 'carried'; carriedCount++;
+      }
+      items.push({region:cur.region, rdt:cur.rdt, sklad_name:cur.sklad_name, material:cur.material, material_name:cur.material_name, qty, value, qty_in, qty_out, source});
+    } else if (prev){
+      untouchedCount++;
+      items.push({...prev, qty_in:0, qty_out:0, source:'untouched'});
+    }
+  });
+
+  const noBaseline = carriedCount>0 && Object.keys(prevMap).length===0;
+  try{
+    await db.collection(COL_SNAPSHOT).doc(date).set({date, savedAt:new Date().toISOString(), items});
+    let msg = `Снимок за ${date} сохранён: ${reportedCount} из отчёта «Наличие»`;
+    if (carriedCount) msg += `, ${carriedCount} рассчитано (предыдущий остаток + приход − расход)`;
+    if (untouchedCount) msg += `, ${untouchedCount} перенесено без изменений`;
+    if (noBaseline) msg += `. ⚠️ Нет предыдущего снимка — расчётные остатки посчитаны от 0, рекомендуется сначала загрузить «Наличие»`;
+    toast(msg);
+  }catch(e){
+    console.error(e);
+    toast('Ошибка сохранения снимка в Firestore');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PIVOT — множественный выбор полей для строк/столбцов/значений
+// ══════════════════════════════════════════════════════════════
+const PIVOT_FIELD_DEFS = [
+  {key:'region', label:'Регион'},
+  {key:'rdt', label:'РДТ (зона)'},
+  {key:'tip', label:'Тип склада'},
+  {key:'sklad_name', label:'Склад'},
+  {key:'material_name', label:'Материал'},
+  {key:'vendor', label:'Вендор'},
+  {key:'freq', label:'Частота/тип'},
+  {key:'spp_name', label:'Программа (Наименование СПП)'}
+];
+const PIVOT_VAL_DEFS = [
+  {key:'qty', label:'Количество'},
+  {key:'value', label:'Сумма, тенге'}
+];
+
+// Чек-лист с ЗАПОМИНАНИЕМ ПОРЯДКА выбора — первое отмеченное поле становится внешней
+// группировкой, следующее — вложенной, и т.д. (как в обычном PivotTable).
+function renderChecklist(boxId, defs, defaultChecked){
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  box.innerHTML = defs.map(d=>`<label><input type="checkbox" value="${d.key}" ${defaultChecked.includes(d.key)?'checked':''}> ${d.label}</label>`).join('');
+  let counter = defaultChecked.length;
+  box.querySelectorAll('input').forEach((inp,idx)=>{
+    if (inp.checked) inp.dataset.order = defaultChecked.indexOf(inp.value);
+    inp.addEventListener('change', ()=>{
+      if (inp.checked){ inp.dataset.order = counter++; }
+      else { delete inp.dataset.order; }
+    });
+  });
+}
+function getCheckedValues(boxId){
+  const inputs = [...document.querySelectorAll('#'+boxId+' input:checked')];
+  inputs.sort((a,b)=>(Number(a.dataset.order)||0)-(Number(b.dataset.order)||0));
+  return inputs.map(i=>i.value);
+}
+function initPivotUI(){
+  renderChecklist('pvRowFields', PIVOT_FIELD_DEFS, ['region']);
+  renderChecklist('pvColFields', PIVOT_FIELD_DEFS, []);
+  renderChecklist('pvValFields', PIVOT_VAL_DEFS, ['qty']);
+}
+function fmtNum(n){ return Number(n).toLocaleString('ru-RU', {maximumFractionDigits:2}); }
+
+function buildPivot(){
+  if (!rows.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Сначала обработайте файлы на вкладке «Загрузка»</div>'; return; }
+  const typeFilter = document.getElementById('pvType').value;
+  const rowFields = getCheckedValues('pvRowFields');
+  const colFields = getCheckedValues('pvColFields');
+  const valFields = getCheckedValues('pvValFields');
+  const aggMode = document.getElementById('pvAgg').value;
+
+  if (!rowFields.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Выберите хотя бы одно поле в «Строки»</div>'; return; }
+  if (!valFields.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Выберите хотя бы одно поле в «Значение»</div>'; return; }
+
+  const srcRows = typeFilter ? rows.filter(r=>r.report_type===typeFilter) : rows;
+  if (!srcRows.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Нет строк с выбранным типом данных в текущей загрузке</div>'; return; }
+
+  if (valFields.length===1){
+    renderNestedPivot(srcRows, rowFields, colFields, valFields[0], aggMode);
+  } else {
+    renderFlatMultiValuePivot(srcRows, rowFields, colFields, valFields, aggMode);
+  }
+}
+
+// ── строит дерево различных сочетаний значений выбранных полей (Map, отсортировано) ──
+function buildValueTree(dataRows, fields){
+  if (!fields.length) return {leaf:true};
+  const root = {leaf:false, children:new Map()};
+  dataRows.forEach(r=>{
+    let node = root;
+    for (let i=0;i<fields.length;i++){
+      const v = r[fields[i]] || '(не указано)';
+      if (!node.children.has(v)) node.children.set(v, i===fields.length-1 ? {leaf:true} : {leaf:false, children:new Map()});
+      node = node.children.get(v);
+    }
+  });
+  return root;
+}
+// строки: промежуточный итог группы идёт ПЕРЕД её вложенными строками (как «МОЛ» / «ЦС» в вашем отчёте)
+function flattenRowTree(node, path, depth, out){
+  [...node.children.keys()].sort().forEach(k=>{
+    const child = node.children.get(k);
+    const childPath = [...path, k];
+    if (child.leaf){
+      out.push({type:'detail', label:k, path:childPath, depth});
+    } else {
+      out.push({type:'subtotal', label:k, path:childPath, depth});
+      flattenRowTree(child, childPath, depth+1, out);
+    }
+  });
+}
+// столбцы: итог группы («Nokia Итог») идёт ПОСЛЕ её вложенных столбцов
+function flattenColTree(node, path, depth, totalLevels, out, headerMatrix, xRef){
+  [...node.children.keys()].sort().forEach(k=>{
+    const child = node.children.get(k);
+    const childPath = [...path, k];
+    if (child.leaf){
+      const x = xRef.x++;
+      out.push({label:k, path:childPath, x});
+      headerMatrix[depth].push({label:k, colspan:1, rowspan: totalLevels-depth, x});
+    } else {
+      const startX = xRef.x;
+      flattenColTree(child, childPath, depth+1, totalLevels, out, headerMatrix, xRef);
+      const width = xRef.x - startX;
+      headerMatrix[depth].push({label:k, colspan:width, rowspan:1, x:startX});
+      const subX = xRef.x++;
+      out.push({label:k+' Итог', path:childPath, isSubtotal:true, x:subX});
+      headerMatrix[depth].push({label:k+' Итог', colspan:1, rowspan: totalLevels-depth, x:subX});
+    }
+  });
+}
+
+function renderNestedPivot(srcRows, rowFields, colFields, valField, aggMode){
+  const fieldLabel = key => PIVOT_FIELD_DEFS.find(d=>d.key===key).label;
+  const rowHeaderLabel = rowFields.map(fieldLabel).join(' / ');
+
+  // суммы по всем префиксам пути строки × всем префиксам пути столбца — одним проходом
+  const sums = {};
+  srcRows.forEach(r=>{
+    const rPath = rowFields.map(f=>r[f]||'(не указано)');
+    const cPath = colFields.map(f=>r[f]||'(не указано)');
+    for (let ri=0; ri<=rowFields.length; ri++){
+      const rKey = rPath.slice(0,ri).join('§');
+      for (let ci=0; ci<=colFields.length; ci++){
+        const key = rKey+'||'+cPath.slice(0,ci).join('§');
+        if (!sums[key]) sums[key] = {sum:0, count:0};
+        sums[key].sum += (r[valField]||0);
+        sums[key].count += 1;
+      }
+    }
+  });
+  const cellVal = (rowPath, colPath) => {
+    const c = sums[rowPath.join('§')+'||'+colPath.join('§')];
+    if (!c) return 0;
+    return aggMode==='sum' ? c.sum : c.count;
+  };
+
+  const rowTree = buildValueTree(srcRows, rowFields);
+  const rowList = [];
+  flattenRowTree(rowTree, [], 0, rowList);
+
+  let colList, headerMatrix, totalColLevels;
+  if (colFields.length){
+    const colTree = buildValueTree(srcRows, colFields);
+    totalColLevels = colFields.length;
+    headerMatrix = Array.from({length: totalColLevels}, ()=>[]);
+    colList = [];
+    const xRef = {x:0};
+    flattenColTree(colTree, [], 0, totalColLevels, colList, headerMatrix, xRef);
+    const grandX = xRef.x++;
+    headerMatrix[0].push({label:'Общий итог', colspan:1, rowspan: totalColLevels, x:grandX});
+    colList.push({label:'Общий итог', path:[], isGrand:true, x:grandX});
+  } else {
+    totalColLevels = 1;
+    headerMatrix = [[{label:'Итого', colspan:1, rowspan:1, x:0}]];
+    colList = [{label:'Итого', path:[], isGrand:true, x:0}];
+  }
+
+  let html = '<table><thead>';
+  headerMatrix.forEach((rowCells, i)=>{
+    html += '<tr>';
+    if (i===0) html += `<th rowspan="${totalColLevels}">${rowHeaderLabel}</th>`;
+    rowCells.forEach(c=>{ html += `<th colspan="${c.colspan}" rowspan="${c.rowspan}">${c.label}</th>`; });
+    html += '</tr>';
+  });
+  html += '</thead><tbody>';
+  rowList.forEach(rw=>{
+    const cls = rw.type==='subtotal' ? (rw.depth===0?'pv-sub0':'pv-sub1') : '';
+    html += `<tr class="${cls}"><td style="padding-left:${10+rw.depth*18}px">${rw.type==='subtotal'?'<b>'+rw.label+'</b>':rw.label}</td>`;
+    colList.forEach(cl=>{ const v = cellVal(rw.path, cl.path); html += `<td>${v?fmtNum(v):''}</td>`; });
+    html += '</tr>';
+  });
+  html += `<tr class="pv-sub0"><td><b>Общий итог</b></td>`;
+  colList.forEach(cl=>{ const v = cellVal([], cl.path); html += `<td><b>${v?fmtNum(v):''}</b></td>`; });
+  html += '</tr></tbody></table>';
+  document.getElementById('pivotBox').innerHTML = html;
+  window._lastPivot = {mode:'nested', rowList, colList, cellVal, rowHeaderLabel, headerMatrix, totalColLevels, numFmt: valField==='qty' ? '#,##0' : '#,##0.00'};
+}
+
+// ── режим для нескольких показателей одновременно (Количество + Сумма) — плоский, без промежуточных итогов ──
+function renderFlatMultiValuePivot(srcRows, rowFields, colFields, valFields, aggMode){
+  const fieldLabel = key => PIVOT_FIELD_DEFS.find(d=>d.key===key).label;
+  const valLabel = key => PIVOT_VAL_DEFS.find(d=>d.key===key).label;
+  const rowLabel = rowFields.map(fieldLabel).join(' / ');
+
+  const rowKeys = new Set(), baseColKeys = new Set();
+  const cells = {};
+  srcRows.forEach(r=>{
+    const rk = rowFields.map(f=>r[f]||'(не указано)').join(' / ');
+    const ck = colFields.length ? colFields.map(f=>r[f]||'(не указано)').join(' / ') : '__all__';
+    rowKeys.add(rk); baseColKeys.add(ck);
+    const cellKey = rk+'||'+ck;
+    if (!cells[cellKey]) cells[cellKey] = {sums:{}, count:0};
+    valFields.forEach(vf=>{ cells[cellKey].sums[vf] = (cells[cellKey].sums[vf]||0) + (r[vf]||0); });
+    cells[cellKey].count += 1;
+  });
+  const rArr = [...rowKeys].sort();
+  const cArr = [...baseColKeys].sort();
+  const pick = (cell, vf) => aggMode==='sum' ? (cell.sums[vf]||0) : cell.count;
+
+  const flatCols = [];
+  cArr.forEach(ck=>valFields.forEach(vf=>flatCols.push({ck,vf})));
+
+  let html = '<table><thead><tr><th>'+rowLabel+'</th>';
+  flatCols.forEach(({ck,vf})=>{
+    const base = ck==='__all__' ? 'Итого' : ck;
+    html += `<th>${base}  ·  ${valLabel(vf)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  rArr.forEach(rk=>{
+    html += `<tr><td><b>${rk}</b></td>`;
+    flatCols.forEach(({ck,vf})=>{ const c = cells[rk+'||'+ck]; const v = c?pick(c,vf):0; html += `<td>${v?fmtNum(v):''}</td>`; });
+    html += '</tr>';
+  });
+  const colTotals = {};
+  flatCols.forEach(({ck,vf})=>{
+    let t=0; rArr.forEach(rk=>{ const c=cells[rk+'||'+ck]; if (c) t+=pick(c,vf); });
+    colTotals[ck+'§'+vf]=t;
+  });
+  html += `<tr><td><b>Итого</b></td>`;
+  flatCols.forEach(({ck,vf})=>{ const t = colTotals[ck+'§'+vf]||0; html+=`<td><b>${t?fmtNum(t):''}</b></td>`; });
+  html += '</tr></tbody></table>';
+  document.getElementById('pivotBox').innerHTML = html;
+  window._lastPivot = {mode:'flat', rArr, flatCols, cells, pick, rowLabel, valLabel};
+}
+
+async function exportPivot(){
+  const lp = window._lastPivot;
+  if (!lp){ toast('Сначала постройте сводную таблицу'); return; }
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Сводная');
+
+  if (lp.mode==='nested'){
+    const {rowList, colList, cellVal, rowHeaderLabel, headerMatrix, totalColLevels, numFmt} = lp;
+    const nCols = 1 + colList.length;
+
+    // ---- шапка ----
+    for (let d=0; d<totalColLevels; d++) ws.getRow(d+1);
+    ws.getCell(1,1).value = rowHeaderLabel;
+    if (totalColLevels>1) ws.mergeCells(1,1,totalColLevels,1);
+    headerMatrix.forEach((cellsArr, depth)=>cellsArr.forEach(c=>{
+      ws.getCell(depth+1, c.x+2).value = c.label;
+      if (c.colspan>1 || c.rowspan>1) ws.mergeCells(depth+1, c.x+2, depth+c.rowspan, c.x+1+c.colspan);
+    }));
+    for (let r=1;r<=totalColLevels;r++) styleHeaderRow(ws.getRow(r));
+
+    // ---- строки данных: если значения нет — ячейка остаётся пустой (не 0) ----
+    rowList.forEach((rw,i)=>{
+      const r = totalColLevels + 1 + i;
+      const cell0 = ws.getCell(r,1);
+      cell0.value = rw.label;
+      cell0.alignment = {indent: rw.depth*2};
+      colList.forEach(cl=>{
+        const v = cellVal(rw.path, cl.path);
+        const cell = ws.getCell(r, cl.x+2);
+        cell.value = v ? v : null;
+        cell.numFmt = numFmt;
+      });
+      if (rw.type==='subtotal'){
+        const fill = rw.depth===0 ? XLS_SUB0_FILL : XLS_SUB1_FILL;
+        ws.getRow(r).eachCell({includeEmpty:true}, c=>{ c.fill = fill; c.font = {bold:true}; });
+      }
+    });
+
+    // ---- общий итог ----
+    const grandR = totalColLevels + 1 + rowList.length;
+    ws.getCell(grandR,1).value = 'Общий итог';
+    colList.forEach(cl=>{
+      const v = cellVal([], cl.path);
+      const cell = ws.getCell(grandR, cl.x+2);
+      cell.value = v ? v : null;
+      cell.numFmt = numFmt;
+    });
+    ws.getRow(grandR).eachCell({includeEmpty:true}, c=>{ c.fill = XLS_GRAND_FILL; c.font = {bold:true}; });
+
+    const lastRow = grandR, lastCol = nCols;
+    for (let r=1;r<=lastRow;r++) for (let c=1;c<=lastCol;c++) ws.getCell(r,c).border = XLS_BORDER;
+    ws.getColumn(1).width = 26;
+    for (let c=2;c<=lastCol;c++) ws.getColumn(c).width = 13;
+    ws.views = [{state:'frozen', xSplit:1, ySplit:totalColLevels}];
+  } else {
+    const {rArr,flatCols,cells,pick,rowLabel,valLabel} = lp;
+    ws.getCell(1,1).value = rowLabel;
+    flatCols.forEach(({ck,vf},i)=>{ ws.getCell(1, i+2).value = (ck==='__all__'?'Итого':ck)+' · '+valLabel(vf); });
+    styleHeaderRow(ws.getRow(1));
+    rArr.forEach((rk,ri)=>{
+      const r = ri+2;
+      ws.getCell(r,1).value = rk;
+      flatCols.forEach(({ck,vf},ci)=>{
+        const c = cells[rk+'||'+ck];
+        const v = c ? pick(c,vf) : 0;
+        const cell = ws.getCell(r, ci+2);
+        cell.value = v ? v : null;
+        cell.numFmt = vf==='qty' ? '#,##0' : '#,##0.00';
+      });
+    });
+    const totalR = rArr.length+2;
+    ws.getCell(totalR,1).value = 'Итого';
+    flatCols.forEach(({ck,vf},ci)=>{
+      let t=0; rArr.forEach(rk=>{ const c=cells[rk+'||'+ck]; if (c) t+=pick(c,vf); });
+      const cell = ws.getCell(totalR, ci+2);
+      cell.value = t ? t : null;
+      cell.numFmt = vf==='qty' ? '#,##0' : '#,##0.00';
+    });
+    ws.getRow(totalR).eachCell({includeEmpty:true}, c=>{ c.fill = XLS_GRAND_FILL; c.font = {bold:true}; });
+    const lastRow = totalR, lastCol = flatCols.length+1;
+    for (let r=1;r<=lastRow;r++) for (let c=1;c<=lastCol;c++) ws.getCell(r,c).border = XLS_BORDER;
+    ws.getColumn(1).width = 26;
+    for (let c=2;c<=lastCol;c++) ws.getColumn(c).width = 16;
+    ws.views = [{state:'frozen', xSplit:1, ySplit:1}];
+  }
+  await downloadWorkbook(wb, `Сводная_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// FORECAST
+// ══════════════════════════════════════════════════════════════
+function populateForecastMaterials(){
+  const sel = document.getElementById('fcMaterial');
+  const mats = [...new Set(rows.map(r=>r.material+'||'+r.material_name))].sort();
+  sel.innerHTML = mats.map(m=>{ const [code,name]=m.split('||'); return `<option value="${code}">${name} (${code})</option>`; }).join('');
+}
+
+async function buildForecast(){
+  const dim = document.getElementById('fcDim').value;
+  const material = document.getElementById('fcMaterial').value;
+  const infoBox = document.getElementById('snapshotsInfo');
+  const box = document.getElementById('forecastBox');
+  try{
+    const snap = await db.collection(COL_SNAPSHOT).orderBy('date').get();
+    const snapshots = [];
+    snap.forEach(d=>snapshots.push(d.data()));
+    infoBox.textContent = `Накоплено периодов в истории: ${snapshots.length}`;
+    if (snapshots.length < 2){
+      box.innerHTML = '<div class="empty">Недостаточно данных для прогноза — нужно минимум 2 сохранённых снимка. Сохраняйте снимок после каждой загрузки на вкладке «Загрузка».</div>';
+      return;
+    }
+    // series[entity] = [{date, qty}]
+    const series = {};
+    snapshots.forEach(s=>{
+      (s.items||[]).forEach(it=>{
+        if (material && it.material !== material) return;
+        const key = it[dim] || '(не указано)';
+        if (!series[key]) series[key] = [];
+        series[key].push({date:s.date, qty:it.qty});
+      });
+    });
+    const entities = Object.keys(series).sort();
+    if (!entities.length){ box.innerHTML = '<div class="empty">Нет данных по выбранному материалу в истории снимков</div>'; return; }
+
+    let html = `<table><thead><tr><th>${dim==='region'?'Регион':dim==='rdt'?'РДТ':'Склад'}</th>`;
+    snapshots.forEach(s=>html+=`<th>${s.date}</th>`);
+    html += `<th>Тренд</th><th>Прогноз на след. период</th><th>Риск дефицита</th></tr></thead><tbody>`;
+    entities.forEach(key=>{
+      const pts = series[key];
+      const byDate = {}; pts.forEach(p=>byDate[p.date]=(byDate[p.date]||0)+p.qty);
+      const xs = snapshots.map((s,i)=>i);
+      const ys = snapshots.map(s=>byDate[s.date]||0);
+      const {slope, next} = linearForecast(xs, ys);
+      const risk = (next <= 0 || (slope < 0 && next < ys[ys.length-1]*0.15)) ? '🔴 высокий' : (slope < 0 ? '🟡 снижается' : '🟢 норма');
+      html += `<tr><td><b>${key}</b></td>`;
+      snapshots.forEach(s=>html+=`<td>${fmtNum(byDate[s.date]||0)}</td>`);
+      html += `<td>${slope>0?'▲':slope<0?'▼':'—'} ${fmtNum(slope)}/период</td><td>${fmtNum(Math.max(0,next))}</td><td>${risk}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+  }catch(e){
+    console.error(e);
+    box.innerHTML = '<div class="empty">Ошибка загрузки истории из Firestore</div>';
+  }
+}
+
+// простая линейная регрессия (метод наименьших квадратов)
+function linearForecast(xs, ys){
+  const n = xs.length;
+  const sx = xs.reduce((a,b)=>a+b,0), sy = ys.reduce((a,b)=>a+b,0);
+  const sxy = xs.reduce((a,x,i)=>a+x*ys[i],0), sxx = xs.reduce((a,x)=>a+x*x,0);
+  const denom = (n*sxx - sx*sx) || 1;
+  const slope = (n*sxy - sx*sy) / denom;
+  const intercept = (sy - slope*sx) / n;
+  const next = intercept + slope*n;
+  return {slope, intercept, next};
+}
+
+// ══════════════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>showPage(t.dataset.page)));
+function showPage(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.page===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+name));
+}
+
+// init
+loadDictionaries();
+initPivotUI();
+</script>
+</body>
+</html>
