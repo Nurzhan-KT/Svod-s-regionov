@@ -184,6 +184,9 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
       <div class="tblwrap" id="unresolvedRegionsBox"><div class="empty">Нет данных — сначала обработайте файл на вкладке «Загрузка»</div></div>
       <h3>Партии без вендора/частоты/цены (только для отслеживаемых материалов)</h3>
       <div class="tblwrap" id="unresolvedPartiyaBox"><div class="empty">—</div></div>
+      <h3>Модели оборудования из нарядов без кода материала (файлы «Расход»)</h3>
+      <p class="hint">Наряды на установку не содержат код материала СКЛАДа — только название модели. Один раз укажите код материала (как в DRB/ODS/DTK) — свяжется навсегда.</p>
+      <div class="tblwrap" id="unresolvedModelsBox"><div class="empty">—</div></div>
       <div class="row" style="margin-top:14px">
         <button class="btn btn-primary" onclick="applyReviewAndReclassify()">✅ Применить и пересчитать</button>
       </div>
@@ -202,8 +205,9 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
           <label>Показать словарь</label>
           <select id="dictSelect" onchange="renderDict()">
             <option value="zavod">Завод → Регион</option>
-            <option value="override">Ручные привязки склада → Регион</option>
+            <option value="override">Ручные привязки склада/филиала → Регион</option>
             <option value="partiya">Партия → Вендор/Частота/Цена</option>
+            <option value="model">Модель оборудования → Код материала</option>
             <option value="spp">СПП-элемент → Наименование СПП</option>
             <option value="ont">Отслеживаемые материалы (Вендор/Частота/Цена)</option>
           </select>
@@ -290,6 +294,7 @@ const COL_PARTIYA = 'sklad_partiya';
 const COL_SPP = 'sklad_spp_names';
 const COL_SNAPSHOT = 'sklad_snapshots';
 const COL_CONFIG = 'sklad_config';
+const COL_MODEL = 'sklad_model_material';
 
 // ══════════════════════════════════════════════════════════════
 // СТАРТОВЫЕ СЛОВАРИ — извлечены из реальных файлов DRB/ODS/DTK
@@ -362,6 +367,42 @@ const SEED_OVERRIDE = {
 // Материалы, для которых имеет смысл Вендор/Частота/Цена (ONT/GPON-оборудование).
 const SEED_ONT_MATERIALS = ['123705064','123705167','123706132','123706141','123706142','141200012'];
 
+// ══════════════════════════════════════════════════════════════
+// СЛОВАРИ ДЛЯ ФАЙЛОВ «РАСХОД» (выгрузка нарядов на установку —
+// совсем другая структура, чем у DRB/ODS/DTK: нет Склада/Завода/
+// Партии, зато есть Филиал/Область, РДТ-код, модель оборудования,
+// вендор, частота и серийный номер).
+// ══════════════════════════════════════════════════════════════
+
+// Код РДТ из наряда → зона (те же 6 зон, что и везде).
+const RDT_CODE_MAP = {
+  'АРДТ':'Алматы', 'ВРДТ':'Восток', 'ЗРДТ':'Запад', 'СРДТ':'Север', 'ЦРДТ':'Центр', 'ЮРДТ':'Юг'
+};
+
+// Филиал (или Область, если Филиал пуст) → Регион. Извлечено из реального файла нарядов
+// (82 тыс. строк, 17 филиалов) — покрывает все встретившиеся значения на дату сборки.
+const SEED_FILIAL_REGION = {
+  'Акмолинская ОДТ':'Кокшетау', 'Актюбинская ОДТ':'Актобе', 'Алматинская ОДТ':'Алм.Регион',
+  'Атырауская ОДТ':'Атырау', 'Восточно-Казахстанская ОДТ':'У-ка', 'ГЦТ Алматытелеком':'Алматы',
+  'ГЦТ Астанателеком':'Астана', 'Жамбылская ОДТ':'Тараз', 'Западно-Казахстанская ОДТ':'Уральск',
+  'Карагандинская ОДТ':'Караганда', 'Костанайская ОДТ':'Костанай', 'Кызылординская ОДТ':'Кызылорда',
+  'Мангистауская ОДТ':'Актау', 'Павлодарская ОДТ':'Павлодар', 'Северо-Казахстанская ОДТ':'Петропавловск',
+  'Семипалатинск':'Семей', 'Южно-Казахстанская ОДТ':'Шымкент'
+};
+
+// Нормализация написания вендора из нарядов (там развёрнутые названия) к стилю DRB/ODS/DTK.
+const VENDOR_NORMALIZE = {
+  'NOKIA':'Nokia', 'HUAWEI TECHNOLOGIES INC':'HUAWEI', 'CALIX':'Calix',
+  'ZTE CORPORATION':'ZTE', 'ERICSSON':'Ericsson', 'ECI TELECOM':'ECI'
+};
+
+// Статусы наряда, которые считаются фактическим расходом (материал реально выдан/установлен).
+const RASKHOD_STATUSES = new Set(['Наряд выполнен', 'Подведение итогов']);
+
+function cleanText(s){ return String(s||'').replace(/^﻿/,'').trim(); }
+function normalizeVendorName(v){ const c = cleanText(v).toUpperCase(); return VENDOR_NORMALIZE[c] || cleanText(v); }
+function modelDocId(name){ return encodeURIComponent(cleanText(name)).slice(0,300) || '_empty'; }
+
 // Определение типа по имени файла — используется только для мягкого предупреждения,
 // если файл, похоже, положили не в то окно (окно — основной источник истины для типа).
 function guessReportType(name){
@@ -380,14 +421,17 @@ const SEED_PARTIYA = [{"partiya":"0000389408","vendor":"Nokia","freq":"5","price
 let files = [];               // {name,label,arrayBuffer}
 let dictZavod = {...SEED_ZAVOD_REGION};
 let dictOverride = {...SEED_OVERRIDE};
+Object.entries(SEED_FILIAL_REGION).forEach(([f,r]) => { dictOverride['FILIAL_'+f] = r; });
 let dictPartiya = {};         // partiya -> {vendor,freq,price}
 let dictSpp = {};             // sppCode -> name
+let dictModelMaterial = {};   // model name -> material code (для нарядов «Расход»)
 let ontMaterials = new Set(SEED_ONT_MATERIALS);
 SEED_PARTIYA.forEach(p => dictPartiya[p.partiya] = {vendor:p.vendor, freq:p.freq, price:p.price});
 
 let rows = [];                 // enriched rows from last processing
-let unresolvedRegions = {};    // key(zavod_sklad) -> {zavod,sklad,name,count}
+let unresolvedRegions = {};    // key(zavod_sklad или FILIAL_xxx) -> {zavod,sklad,name,count}
 let unresolvedPartiya = {};    // partiya -> {name,material,count}
+let unresolvedModels = {};     // model name -> {name,vendor,freq,count}
 let discrepancies = [];
 let dictLoaded = false;
 
@@ -404,17 +448,19 @@ async function loadDictionaries(){
   const statusEl = document.getElementById('syncStatus');
   statusEl.innerHTML = '<span class="spinner"></span>Синхронизация словарей…';
   try{
-    const [zSnap, oSnap, pSnap, sSnap, cSnap] = await Promise.all([
+    const [zSnap, oSnap, pSnap, sSnap, mSnap, cSnap] = await Promise.all([
       db.collection(COL_ZAVOD).get(),
       db.collection(COL_OVERRIDE).get(),
       db.collection(COL_PARTIYA).get(),
       db.collection(COL_SPP).get(),
+      db.collection(COL_MODEL).get(),
       db.collection(COL_CONFIG).doc('ont_materials').get()
     ]);
     zSnap.forEach(d => dictZavod[d.id] = d.data().region);
     oSnap.forEach(d => dictOverride[d.id] = d.data().region);
     pSnap.forEach(d => dictPartiya[d.id] = d.data());
     sSnap.forEach(d => dictSpp[d.id] = d.data().name);
+    mSnap.forEach(d => dictModelMaterial[d.data().model_name || d.id] = d.data().material);
     if (cSnap.exists && Array.isArray(cSnap.data().codes)) {
       ontMaterials = new Set(cSnap.data().codes);
     }
@@ -476,10 +522,17 @@ function removeFile(i){ files.splice(i,1); renderFileList(); }
 // ══════════════════════════════════════════════════════════════
 // PARSE + CLASSIFY
 // ══════════════════════════════════════════════════════════════
+// Период снимка — всегда МЕСЯЦ (YYYY-MM): «Наличие» обычно даётся на конкретный день,
+// «Расход» из нарядов — это исторический журнал за много дней/месяцев сразу. Чтобы всё
+// сводилось в один баланс, все даты приводятся к месяцу.
 function extractDateFromName(name){
   const m = name.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  return new Date().toISOString().slice(0,10);
+  if (m) return `${m[3]}-${m[2]}`;
+  return new Date().toISOString().slice(0,7);
+}
+function toPeriod(dateStr){
+  const m = String(dateStr||'').match(/(\d{4})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}` : null;
 }
 
 function parseSheet1(wb){
@@ -529,6 +582,77 @@ function resolveRegion(r){
   return {region:null, src:'unresolved'};
 }
 
+// ── Определение формата листа: сырая выгрузка SAP (Склад/Завод/Партия) или
+// выгрузка нарядов на установку (ID наряда/sn_tt — файлы «Расход» с реальными данными). ──
+function detectSheetKind(wb){
+  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
+  const ws = wb.Sheets[wsName];
+  const first = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, range:0, defval:''})[0] || [];
+  const header = first.map(h=>cleanText(h).toLowerCase());
+  if (header.some(h=>h.startsWith('id наряда') || h==='sn_tt')) return 'narad';
+  return 'sap';
+}
+
+function formatDateCell(v){
+  if (v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}`;
+  const s = cleanText(v);
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}`;
+  m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}`;
+  return null;
+}
+
+// ── Разбор выгрузки нарядов на установку (файлы «Расход») ──
+function parseNaradSheet(wb){
+  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
+  const ws = wb.Sheets[wsName];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  if (!aoa.length) return [];
+  const header = aoa[0].map(h=>cleanText(h));
+  const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
+  const cIdx = {
+    dateClose: idx('Дата закрытия наряда'), dateReg: idx('Дата регистрации наряда'),
+    rdt: idx('РДТ'), oblast: idx('Область'), filial: idx('Филиал'),
+    status: idx('Статус наряда'), model: idx('Наименование модели'),
+    vendor: idx('proizvoditel_isb'), freq: idx('chastota_gc'),
+    sn_tt: idx('sn_tt'), sn_final: idx('sn_final'), sn_remedy: idx('sn_remedy')
+  };
+  const out = [];
+  for (let r=1; r<aoa.length; r++){
+    const row = aoa[r];
+    if (!row || row.every(c=>c==='' || c==null)) continue;
+    const status = cleanText(row[cIdx.status]);
+    if (!RASKHOD_STATUSES.has(status)) continue; // не считается расходом
+    const model = cleanText(row[cIdx.model]);
+    if (!model) continue;
+    const date = formatDateCell(row[cIdx.dateClose]) || formatDateCell(row[cIdx.dateReg]);
+    out.push({
+      date,
+      rdt_code: cleanText(row[cIdx.rdt]),
+      oblast: cleanText(row[cIdx.oblast]),
+      filial: cleanText(row[cIdx.filial]),
+      model_name: model,
+      vendor_raw: cleanText(row[cIdx.vendor]),
+      freq: cleanText(row[cIdx.freq]),
+      serial: cleanText(row[cIdx.sn_tt]) || cleanText(row[cIdx.sn_final]) || cleanText(row[cIdx.sn_remedy])
+    });
+  }
+  return out;
+}
+
+function resolveRegionForFilial(r){
+  const byFilial = dictOverride['FILIAL_'+r.filial];
+  if (byFilial) return byFilial;
+  const byOblast = dictOverride['FILIAL_'+r.oblast];
+  if (byOblast) return byOblast;
+  const nameLower = (r.filial+' '+r.oblast).toLowerCase();
+  for (const [region, kws] of REGION_KEYWORDS){
+    if (kws.some(k => nameLower.includes(k))) return region;
+  }
+  return null;
+}
+
 function resolveTip(r){
   const prefix = r.wh_code.charAt(0);
   const tip = prefix==='0' ? 'ЦС' : (prefix==='1' ? 'МОЛ' : 'НЕИЗВЕСТНО');
@@ -543,10 +667,44 @@ function classifyAll(){
   rows = [];
   unresolvedRegions = {};
   unresolvedPartiya = {};
+  unresolvedModels = {};
   discrepancies = [];
 
   files.forEach(f=>{
-    const wb = XLSX.read(f.arrayBuffer, {type:'array'});
+    const wb = XLSX.read(f.arrayBuffer, {type:'array', cellDates:true});
+    const kind = detectSheetKind(wb);
+
+    if (kind === 'narad'){
+      // ── выгрузка нарядов на установку (файлы «Расход») ──
+      const parsed = parseNaradSheet(wb);
+      parsed.forEach(r=>{
+        const region = resolveRegionForFilial(r);
+        const rdt = RDT_CODE_MAP[r.rdt_code] || (region ? ZONE_BY_REGION[region] : null) || null;
+        const vendor = normalizeVendorName(r.vendor_raw);
+        const material = dictModelMaterial[r.model_name] || '';
+        if (!material){
+          const k = r.model_name;
+          if (!unresolvedModels[k]) unresolvedModels[k] = {model_name:k, vendor, freq:r.freq, count:0};
+          unresolvedModels[k].count++;
+        }
+        if (!region){
+          const k = 'FILIAL_'+(r.filial||r.oblast);
+          if (!unresolvedRegions[k]) unresolvedRegions[k] = {key:k, isFilial:true, zavod:'', wh_code:'', wh_name:r.filial||r.oblast, count:0};
+          unresolvedRegions[k].count++;
+        }
+        rows.push({
+          source: f.label, date: r.date || extractDateFromName(f.name), report_type: 'raskhod',
+          sklad_name: r.filial || r.oblast, sklad_code: '', zavod: '',
+          material, material_name: r.model_name,
+          tip: '', region, rdt, vendor, freq: r.freq, price: '', unit: 'ШТ',
+          qty: 1, value: 0, partiya: r.serial, spp: '', spp_name: '',
+          tab: '', fio: ''
+        });
+      });
+      return;
+    }
+
+    // ── сырая выгрузка SAP (Наличие / Поступление, а также «Расход» в том же формате) ──
     const date = extractDateFromName(f.name);
     const parsed = parseSheet1(wb);
     parsed.forEach(r=>{
@@ -568,7 +726,7 @@ function classifyAll(){
 
       if (!region){
         const k = `${r.zavod}_${r.wh_code}`;
-        if (!unresolvedRegions[k]) unresolvedRegions[k] = {zavod:r.zavod, wh_code:r.wh_code, wh_name:r.wh_name, count:0};
+        if (!unresolvedRegions[k]) unresolvedRegions[k] = {key:k, zavod:r.zavod, wh_code:r.wh_code, wh_name:r.wh_name, count:0};
         unresolvedRegions[k].count++;
       }
       if (flag){
@@ -594,6 +752,7 @@ function renderStats(){
   const total = rows.length;
   const regionMissing = Object.values(unresolvedRegions).reduce((s,x)=>s+x.count,0);
   const partiyaMissing = Object.values(unresolvedPartiya).reduce((s,x)=>s+x.count,0);
+  const modelMissing = Object.values(unresolvedModels).reduce((s,x)=>s+x.count,0);
   const ontRows = rows.filter(r=>ontMaterials.has(r.material)).length;
   const nalCount = rows.filter(r=>r.report_type==='nalichie').length;
   const inCount = rows.filter(r=>r.report_type==='postuplenie').length;
@@ -607,6 +766,7 @@ function renderStats(){
     <div class="stat"><div class="n">${outCount.toLocaleString('ru-RU')}</div><div class="l">Строк «Расход»</div></div>
     <div class="stat ${Object.keys(unresolvedRegions).length?'warn':'ok'}"><div class="n">${Object.keys(unresolvedRegions).length}</div><div class="l">Складов без региона (${regionMissing} стр.)</div></div>
     <div class="stat ${Object.keys(unresolvedPartiya).length?'warn':'ok'}"><div class="n">${Object.keys(unresolvedPartiya).length}</div><div class="l">Партий без вендора (${partiyaMissing} стр.)</div></div>
+    <div class="stat ${Object.keys(unresolvedModels).length?'warn':'ok'}"><div class="n">${Object.keys(unresolvedModels).length}</div><div class="l">Моделей без кода материала (${modelMissing} стр.)</div></div>
     <div class="stat"><div class="n">${ontRows.toLocaleString('ru-RU')}</div><div class="l">Строк ONT-оборудования</div></div>
     <div class="stat ${discrepancies.length?'warn':'ok'}"><div class="n">${discrepancies.length}</div><div class="l">Расхождений тип/название</div></div>
   `;
@@ -632,10 +792,10 @@ function renderReviewTables(){
   if (!list1.length){
     rBox.innerHTML = '<div class="empty">✅ Все склады успешно определены</div>';
   } else {
-    rBox.innerHTML = `<table><thead><tr><th>Завод</th><th>Код склада</th><th>Название склада</th><th>Строк</th><th>Указать регион</th></tr></thead><tbody>
+    rBox.innerHTML = `<table><thead><tr><th>Завод/Филиал</th><th>Код склада</th><th>Название</th><th>Строк</th><th>Указать регион</th></tr></thead><tbody>
       ${list1.map((u,i)=>`<tr class="flagrow">
-        <td>${u.zavod}</td><td>${u.wh_code}</td><td>${u.wh_name}</td><td>${u.count}</td>
-        <td><select id="rg_${i}" data-zavod="${u.zavod}" data-sklad="${u.wh_code}">
+        <td>${u.isFilial ? '(филиал)' : u.zavod}</td><td>${u.wh_code}</td><td>${u.wh_name}</td><td>${u.count}</td>
+        <td><select id="rg_${i}">
           <option value="">— выбрать —</option>
           ${Object.keys(ZONE_BY_REGION).map(r=>`<option value="${r}">${r}</option>`).join('')}
         </select></td>
@@ -658,6 +818,19 @@ function renderReviewTables(){
     </tbody></table>`;
   }
 
+  const mBox = document.getElementById('unresolvedModelsBox');
+  const list3 = Object.values(unresolvedModels);
+  if (!list3.length){
+    mBox.innerHTML = '<div class="empty">✅ Все модели из нарядов связаны с кодом материала</div>';
+  } else {
+    mBox.innerHTML = `<table><thead><tr><th>Модель</th><th>Вендор (из наряда)</th><th>Частота</th><th>Строк</th><th>Код материала</th></tr></thead><tbody>
+      ${list3.map((u,i)=>`<tr class="flagrow">
+        <td>${u.model_name}</td><td>${u.vendor}</td><td>${u.freq}</td><td>${u.count}</td>
+        <td><input type="text" id="mm_${i}" data-model="${u.model_name}" placeholder="напр. 123705064"></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
   const dBox = document.getElementById('discrepBox');
   if (!discrepancies.length){
     dBox.innerHTML = '<div class="empty">Расхождений не найдено</div>';
@@ -674,7 +847,7 @@ async function applyReviewAndReclassify(){
   list1.forEach((u,i)=>{
     const sel = document.getElementById(`rg_${i}`);
     if (sel && sel.value){
-      const key = `${u.zavod}_${u.wh_code}`;
+      const key = u.key || `${u.zavod}_${u.wh_code}`;
       dictOverride[key] = sel.value;
       writes.push(db.collection(COL_OVERRIDE).doc(key).set({region:sel.value, wh_name:u.wh_name, updatedAt:new Date().toISOString()}));
     }
@@ -686,6 +859,15 @@ async function applyReviewAndReclassify(){
       const data = {vendor:vEl.value.trim(), freq:(fEl.value||'').trim(), price:pEl.value?Number(pEl.value):'', updatedAt:new Date().toISOString()};
       dictPartiya[u.partiya] = data;
       writes.push(db.collection(COL_PARTIYA).doc(u.partiya).set(data));
+    }
+  });
+  const list3 = Object.values(unresolvedModels);
+  list3.forEach((u,i)=>{
+    const mEl = document.getElementById(`mm_${i}`);
+    if (mEl && mEl.value.trim()){
+      const code = mEl.value.trim();
+      dictModelMaterial[u.model_name] = code;
+      writes.push(db.collection(COL_MODEL).doc(modelDocId(u.model_name)).set({model_name:u.model_name, material:code, updatedAt:new Date().toISOString()}));
     }
   });
   if (writes.length){
@@ -713,6 +895,9 @@ function renderDict(){
     const entries = Object.entries(dictPartiya).sort();
     const rowsHtml = entries.map(([k,v])=>`<tr><td>${k}</td><td>${v.vendor||''}</td><td>${v.freq||''}</td><td>${v.price||''}</td></tr>`).join('');
     box.innerHTML = `<table><thead><tr><th>Партия</th><th>Вендор</th><th>Частота/тип</th><th>Цена</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="hint" style="padding:8px">Всего: ${entries.length}</div>`;
+  } else if (sel==='model'){
+    const entries = Object.entries(dictModelMaterial).sort();
+    box.innerHTML = entries.length ? `<table><thead><tr><th>Модель оборудования</th><th>Код материала</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — появится после первой обработки файла «Расход»</div>';
   } else if (sel==='spp'){
     const entries = Object.entries(dictSpp);
     box.innerHTML = entries.length ? `<table><thead><tr><th>СПП-элемент</th><th>Название</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — названия СПП вводятся вручную аналитиком в обогащённой выгрузке</div>';
@@ -773,7 +958,7 @@ async function exportEnriched(){
     {header:'Базовая ЕИ', key:'unit', width:9},
     {header:'Количество', key:'qty', width:12, style:{numFmt:'#,##0'}},
     {header:'Ст-ть/своб.испол.', key:'value', width:16, style:{numFmt:'#,##0.00'}},
-    {header:'Партия', key:'partiya', width:13},
+    {header:'Партия / Серийный №', key:'partiya', width:16},
     {header:'СПП-элемент', key:'spp', width:20},
     {header:'Наименование СПП', key:'spp_name', width:28},
     {header:'Таб№ МОЛ', key:'tab', width:10},
@@ -802,13 +987,12 @@ async function exportEnriched(){
 // (ни наличия, ни прихода/расхода), переносятся из предыдущего снимка без изменений.
 function entityKey(it){ return [it.region||'—', it.rdt||'—', it.sklad_name, it.material, it.material_name].join('|'); }
 
-async function saveSnapshot(){
-  if (!rows.length){ toast('Сначала обработайте файлы'); return; }
-  const date = rows[0].date; // все файлы одной загрузки обычно за одну дату
-
-  // 1) агрегируем текущую загрузку по позиции, раздельно по типу данных
+// Считает итоговые items одного периода: cur = агрегаты за этот период из текущей
+// загрузки, prevMap = остатки из предыдущего периода (Firestore или уже посчитанные
+// в этом же батче — для правильного переноса через несколько месяцев подряд).
+function computeSnapshotItems(dateRows, prevMap){
   const agg = {};
-  rows.forEach(r=>{
+  dateRows.forEach(r=>{
     const key = entityKey({region:r.region, rdt:r.rdt, sklad_name:r.sklad_name, material:r.material, material_name:r.material_name});
     if (!agg[key]) agg[key] = {region:r.region||'—', rdt:r.rdt||'—', sklad_name:r.sklad_name, material:r.material, material_name:r.material_name, nal_qty:0, nal_value:0, in_qty:0, out_qty:0, hasNal:false};
     const e = agg[key];
@@ -817,16 +1001,6 @@ async function saveSnapshot(){
     else { e.nal_qty += r.qty; e.nal_value += r.value; e.hasNal = true; }
   });
 
-  // 2) подтягиваем предыдущий (строго более ранней датой) сохранённый снимок как базу переноса
-  let prevMap = {};
-  try{
-    const snap = await db.collection(COL_SNAPSHOT).where('date','<',date).orderBy('date','desc').limit(1).get();
-    snap.forEach(d=>{
-      (d.data().items||[]).forEach(it=>{ prevMap[entityKey(it)] = it; });
-    });
-  }catch(e){ console.error('previous snapshot lookup failed', e); }
-
-  // 3) объединяем: то, что в текущей загрузке, плюс то, что было раньше и сейчас не тронуто
   const allKeys = new Set([...Object.keys(prevMap), ...Object.keys(agg)]);
   const items = [];
   let reportedCount=0, carriedCount=0, untouchedCount=0;
@@ -850,14 +1024,41 @@ async function saveSnapshot(){
       items.push({...prev, qty_in:0, qty_out:0, source:'untouched'});
     }
   });
+  return {items, reportedCount, carriedCount, untouchedCount};
+}
 
-  const noBaseline = carriedCount>0 && Object.keys(prevMap).length===0;
+async function saveSnapshot(){
+  if (!rows.length){ toast('Сначала обработайте файлы'); return; }
+
+  // одна загрузка может охватывать сразу НЕСКОЛЬКО периодов (например, файл нарядов
+  // «Расход» за 8 месяцев) — группируем строки по их собственной дате и сохраняем
+  // снимок за каждый период по порядку, чтобы перенос остатков шёл месяц за месяцем.
+  const byDate = {};
+  rows.forEach(r=>{ if (r.date) (byDate[r.date] = byDate[r.date]||[]).push(r); });
+  const dates = Object.keys(byDate).sort();
+  if (!dates.length){ toast('Не удалось определить период (дату) ни для одной строки'); return; }
+
+  let prevMap = {};
   try{
-    await db.collection(COL_SNAPSHOT).doc(date).set({date, savedAt:new Date().toISOString(), items});
-    let msg = `Снимок за ${date} сохранён: ${reportedCount} из отчёта «Наличие»`;
-    if (carriedCount) msg += `, ${carriedCount} рассчитано (предыдущий остаток + приход − расход)`;
-    if (untouchedCount) msg += `, ${untouchedCount} перенесено без изменений`;
-    if (noBaseline) msg += `. ⚠️ Нет предыдущего снимка — расчётные остатки посчитаны от 0, рекомендуется сначала загрузить «Наличие»`;
+    const snap = await db.collection(COL_SNAPSHOT).where('date','<',dates[0]).orderBy('date','desc').limit(1).get();
+    snap.forEach(d=>{ (d.data().items||[]).forEach(it=>{ prevMap[entityKey(it)] = it; }); });
+  }catch(e){ console.error('previous snapshot lookup failed', e); }
+
+  let totalReported=0, totalCarried=0, totalUntouched=0, noBaseline=false;
+  try{
+    for (const date of dates){
+      const {items, reportedCount, carriedCount, untouchedCount} = computeSnapshotItems(byDate[date], prevMap);
+      if (carriedCount>0 && Object.keys(prevMap).length===0) noBaseline = true;
+      await db.collection(COL_SNAPSHOT).doc(date).set({date, savedAt:new Date().toISOString(), items});
+      totalReported+=reportedCount; totalCarried+=carriedCount; totalUntouched+=untouchedCount;
+      // база для следующего периода в этом же батче — только что посчитанный снимок
+      prevMap = {}; items.forEach(it=>{ prevMap[entityKey(it)] = it; });
+    }
+    let msg = dates.length>1 ? `Сохранено периодов: ${dates.length} (${dates[0]}…${dates[dates.length-1]})` : `Снимок за ${dates[0]} сохранён`;
+    msg += `. Из отчёта: ${totalReported}`;
+    if (totalCarried) msg += `, рассчитано переносом: ${totalCarried}`;
+    if (totalUntouched) msg += `, без изменений: ${totalUntouched}`;
+    if (noBaseline) msg += `. ⚠️ Для части позиций не было предыдущего периода — остаток посчитан от 0`;
     toast(msg);
   }catch(e){
     console.error(e);
