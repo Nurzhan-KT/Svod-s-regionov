@@ -1385,6 +1385,20 @@ function flattenColTree(node, path, depth, totalLevels, out, headerMatrix, xRef)
   });
 }
 
+// Возвращает HTML-сообщение об отказе, если строк/столбцов/ячеек слишком много для
+// безопасной отрисовки в браузере, иначе null. Пороги подобраны с запасом — обычная
+// читаемая сводная таблица никогда столько не требует; если предел достигнут, почти
+// наверняка отмечено слишком много полей сразу (особенно «Материал»/«Программа» —
+// у них может быть много тысяч разных значений).
+const PIVOT_MAX_ROWS = 3000, PIVOT_MAX_COLS = 300, PIVOT_MAX_CELLS = 150000;
+function pivotSizeGuard(rowCount, colCount){
+  if (rowCount > PIVOT_MAX_ROWS || colCount > PIVOT_MAX_COLS || rowCount*colCount > PIVOT_MAX_CELLS){
+    return `<div class="empty">⚠️ Слишком большая таблица для отображения: ${rowCount.toLocaleString('ru-RU')} строк × ${colCount.toLocaleString('ru-RU')} столбцов.<br>
+      Выберите меньше полей (особенно «Материал» и «Программа» — у них может быть много тысяч разных значений) или сузьте фильтр «Тип данных».</div>`;
+  }
+  return null;
+}
+
 function renderNestedPivot(srcRows, rowFields, colFields, valField, aggMode){
   const fieldLabel = key => PIVOT_FIELD_DEFS.find(d=>d.key===key).label;
   const rowHeaderLabel = rowFields.map(fieldLabel).join(' / ');
@@ -1431,6 +1445,13 @@ function renderNestedPivot(srcRows, rowFields, colFields, valField, aggMode){
     colList = [{label:'Итого', path:[], isGrand:true, x:0}];
   }
 
+  // Защита от зависания браузера: при большом числе полей на большом наборе данных
+  // строк/столбцов может получиться десятки тысяч × десятки тысяч — миллионы ячеек
+  // HTML-таблицы, что реально вешает вкладку. Вместо попытки отрисовать — отказ с
+  // понятным сообщением.
+  const guardMsg = pivotSizeGuard(rowList.length, colList.length);
+  if (guardMsg){ document.getElementById('pivotBox').innerHTML = guardMsg; window._lastPivot = null; return; }
+
   let html = '<table><thead>';
   headerMatrix.forEach((rowCells, i)=>{
     html += '<tr>';
@@ -1475,6 +1496,9 @@ function renderFlatMultiValuePivot(srcRows, rowFields, colFields, valFields, agg
 
   const flatCols = [];
   cArr.forEach(ck=>valFields.forEach(vf=>flatCols.push({ck,vf})));
+
+  const guardMsg = pivotSizeGuard(rArr.length, flatCols.length);
+  if (guardMsg){ document.getElementById('pivotBox').innerHTML = guardMsg; window._lastPivot = null; return; }
 
   let html = '<table><thead><tr><th>'+rowLabel+'</th>';
   flatCols.forEach(({ck,vf})=>{
