@@ -584,13 +584,22 @@ function extractDateFromName(name){
 // лист — у нарядов 63 столбца, из которых нужно ~11; материализация всех 63 столбцов на
 // 80 000+ строк — это лишние ~5 млн ячеек в памяти и была вероятной причиной падения
 // вкладки на больших файлах.
+// Читает ячейку и в «плотном» режиме (dense: true — лист хранится как ws[r][c],
+// компактный 2D-массив, заметно экономнее по памяти на больших листах — официальная
+// рекомендация SheetJS именно для таких случаев), и в обычном (разреженном, ws['A1']
+// и т.п.) режиме листа.
+function getCellAt(ws, r, c){
+  if (Array.isArray(ws[r])) return ws[r][c];
+  return ws[XLSX.utils.encode_cell({r, c})];
+}
+
 function readHeaderRow(ws){
   const ref = ws['!ref'];
   if (!ref) return [];
   const range = XLSX.utils.decode_range(ref);
   const header = [];
   for (let c = range.s.c; c <= range.e.c; c++){
-    const cell = ws[XLSX.utils.encode_cell({r: range.s.r, c})];
+    const cell = getCellAt(ws, range.s.r, c);
     header.push(cell ? String(cell.v==null?'':cell.v).trim() : '');
   }
   return header;
@@ -619,7 +628,7 @@ function extractColumnsDirect(ws, specs){
     specs.forEach(({key})=>{
       const c = colIndex[key];
       if (c==null || c<0){ rowVal[key] = undefined; return; }
-      const cell = ws[XLSX.utils.encode_cell({r, c: range.s.c + c})];
+      const cell = getCellAt(ws, r, range.s.c + c);
       rowVal[key] = cell ? cell.v : undefined;
       if (cell && cell.v!=='' && cell.v!=null) hasAny = true;
     });
@@ -751,6 +760,7 @@ const RASKHOD_STATUSES = new Set(${JSON.stringify([...RASKHOD_STATUSES])});
 ${cleanText.toString()}
 ${excelSerialToYYYYMM.toString()}
 ${formatDateCell.toString()}
+${getCellAt.toString()}
 ${readHeaderRow.toString()}
 ${detectKindFromHeader.toString()}
 ${extractColumnsDirect.toString()}
