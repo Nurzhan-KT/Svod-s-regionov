@@ -530,19 +530,26 @@ function extractDateFromName(name){
   if (m) return `${m[3]}-${m[2]}`;
   return new Date().toISOString().slice(0,7);
 }
-function toPeriod(dateStr){
-  const m = String(dateStr||'').match(/(\d{4})-(\d{2})/);
-  return m ? `${m[1]}-${m[2]}` : null;
-}
 
-// ── Функции ниже (readSheetAoa … parseNaradSheetFromAoa) — ЧИСТЫЕ, без обращения к
+// ── Функции ниже (readHeaderRow … parseNaradSheetFromWs) — ЧИСТЫЕ, без обращения к
 // Firestore/словарям/DOM. Это намеренно: тот же код выполняется и на главном потоке,
 // и внутри Web Worker (см. WORKER_SRC ниже), куда вынесен весь тяжёлый разбор файла,
 // чтобы вкладка браузера не «зависала» на больших выгрузках (наряды — по 80 000+ строк).
-function readSheetAoa(wb){
-  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
-  const ws = wb.Sheets[wsName];
-  return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+//
+// ВАЖНО: читаем ячейки НАПРЯМУЮ по адресу (ws[addr]), а не через sheet_to_json на весь
+// лист — у нарядов 63 столбца, из которых нужно ~11; материализация всех 63 столбцов на
+// 80 000+ строк — это лишние ~5 млн ячеек в памяти и была вероятной причиной падения
+// вкладки на больших файлах.
+function readHeaderRow(ws){
+  const ref = ws['!ref'];
+  if (!ref) return [];
+  const range = XLSX.utils.decode_range(ref);
+  const header = [];
+  for (let c = range.s.c; c <= range.e.c; c++){
+    const cell = ws[XLSX.utils.encode_cell({r: range.s.r, c})];
+    header.push(cell ? String(cell.v==null?'':cell.v).trim() : '');
+  }
+  return header;
 }
 
 function detectKindFromHeader(header){
@@ -551,36 +558,54 @@ function detectKindFromHeader(header){
   return 'sap';
 }
 
-function parseSheet1FromAoa(aoa){
-  if (!aoa.length) return [];
-  const header = aoa[0].map(h=>String(h||'').trim());
-  const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
-  const cIdx = {
-    wh_name: idx('Обозначение склада'), wh_code: idx('Склад'), zavod: idx('Завод'),
-    material: idx('Материал'), material_name: idx('Краткий текст'), unit: idx('Базовая ЕИ'),
-    qty: idx('СвобИспольз'), value: idx('Ст-ть'), partiya: idx('Партия'),
-    spp: idx('СПП-элемент'), tab: idx('Таб'), fio: idx('ФИО')
-  };
+// Читает только перечисленные в specs столбцы (по названию заголовка), построчно,
+// напрямую по адресу ячейки — без построения массива по всем столбцам листа.
+function extractColumnsDirect(ws, specs){
+  const ref = ws['!ref'];
+  if (!ref) return [];
+  const range = XLSX.utils.decode_range(ref);
+  const header = readHeaderRow(ws);
+  const colIndex = {};
+  specs.forEach(({key, match})=>{
+    colIndex[key] = header.findIndex(h => h && h.toLowerCase().startsWith(match.toLowerCase()));
+  });
   const out = [];
-  for (let r=1; r<aoa.length; r++){
-    const row = aoa[r];
-    if (!row || row.every(c=>c==='' || c==null)) continue;
-    out.push({
-      wh_name: String(row[cIdx.wh_name]||'').trim(),
-      wh_code: String(row[cIdx.wh_code]||'').trim().padStart(4,'0'),
-      zavod: String(row[cIdx.zavod]||'').trim(),
-      material: String(row[cIdx.material]||'').trim(),
-      material_name: String(row[cIdx.material_name]||'').trim(),
-      unit: String(row[cIdx.unit]||'').trim(),
-      qty: Number(row[cIdx.qty])||0,
-      value: Number(row[cIdx.value])||0,
-      partiya: String(row[cIdx.partiya]||'').trim(),
-      spp: String(row[cIdx.spp]||'').trim(),
-      tab: String(row[cIdx.tab]||'').trim(),
-      fio: String(row[cIdx.fio]||'').trim()
+  for (let r = range.s.r+1; r <= range.e.r; r++){
+    const rowVal = {}; let hasAny = false;
+    specs.forEach(({key})=>{
+      const c = colIndex[key];
+      if (c==null || c<0){ rowVal[key] = undefined; return; }
+      const cell = ws[XLSX.utils.encode_cell({r, c: range.s.c + c})];
+      rowVal[key] = cell ? cell.v : undefined;
+      if (cell && cell.v!=='' && cell.v!=null) hasAny = true;
     });
+    if (hasAny) out.push(rowVal);
   }
   return out;
+}
+
+function parseSheet1FromWs(ws){
+  const specs = [
+    {key:'wh_name', match:'Обозначение склада'}, {key:'wh_code', match:'Склад'}, {key:'zavod', match:'Завод'},
+    {key:'material', match:'Материал'}, {key:'material_name', match:'Краткий текст'}, {key:'unit', match:'Базовая ЕИ'},
+    {key:'qty', match:'СвобИспольз'}, {key:'value', match:'Ст-ть'}, {key:'partiya', match:'Партия'},
+    {key:'spp', match:'СПП-элемент'}, {key:'tab', match:'Таб'}, {key:'fio', match:'ФИО'}
+  ];
+  const raw = extractColumnsDirect(ws, specs);
+  return raw.map(row=>({
+    wh_name: cleanText(row.wh_name),
+    wh_code: cleanText(row.wh_code).padStart(4,'0'),
+    zavod: cleanText(row.zavod),
+    material: cleanText(row.material),
+    material_name: cleanText(row.material_name),
+    unit: cleanText(row.unit),
+    qty: Number(row.qty)||0,
+    value: Number(row.value)||0,
+    partiya: cleanText(row.partiya),
+    spp: cleanText(row.spp),
+    tab: cleanText(row.tab),
+    fio: cleanText(row.fio)
+  }));
 }
 
 function resolveRegion(r){
@@ -595,8 +620,18 @@ function resolveRegion(r){
   return {region:null, src:'unresolved'};
 }
 
+// Excel хранит даты как число (дней с 1899-12-30). Читаем raw:true без cellDates:true
+// (это заметно дешевле по памяти на больших листах, где дат много, а нужны — единицы),
+// поэтому конвертируем serial-число в дату сами.
+function excelSerialToYYYYMM(serial){
+  const utcDays = Math.floor(serial - 25569);
+  const d = new Date(utcDays * 86400 * 1000);
+  if (isNaN(d)) return null;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+}
 function formatDateCell(v){
   if (v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}`;
+  if (typeof v === 'number' && v > 0) return excelSerialToYYYYMM(v);
   const s = cleanText(v);
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}`;
@@ -606,37 +641,33 @@ function formatDateCell(v){
 }
 
 // ── Разбор выгрузки нарядов на установку (файлы «Расход») ──
-function parseNaradSheetFromAoa(aoa){
-  if (!aoa.length) return [];
-  const header = aoa[0].map(h=>cleanText(h));
-  const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
-  const cIdx = {
-    dateClose: idx('Дата закрытия наряда'), dateReg: idx('Дата регистрации наряда'),
-    rdt: idx('РДТ'), oblast: idx('Область'), filial: idx('Филиал'),
-    status: idx('Статус наряда'), model: idx('Наименование модели'),
-    vendor: idx('proizvoditel_isb'), freq: idx('chastota_gc'),
-    sn_tt: idx('sn_tt'), sn_final: idx('sn_final'), sn_remedy: idx('sn_remedy')
-  };
+function parseNaradSheetFromWs(ws){
+  const specs = [
+    {key:'dateClose', match:'Дата закрытия наряда'}, {key:'dateReg', match:'Дата регистрации наряда'},
+    {key:'rdt', match:'РДТ'}, {key:'oblast', match:'Область'}, {key:'filial', match:'Филиал'},
+    {key:'status', match:'Статус наряда'}, {key:'model', match:'Наименование модели'},
+    {key:'vendor', match:'proizvoditel_isb'}, {key:'freq', match:'chastota_gc'},
+    {key:'sn_tt', match:'sn_tt'}, {key:'sn_final', match:'sn_final'}, {key:'sn_remedy', match:'sn_remedy'}
+  ];
+  const raw = extractColumnsDirect(ws, specs);
   const out = [];
-  for (let r=1; r<aoa.length; r++){
-    const row = aoa[r];
-    if (!row || row.every(c=>c==='' || c==null)) continue;
-    const status = cleanText(row[cIdx.status]);
-    if (!RASKHOD_STATUSES.has(status)) continue; // не считается расходом
-    const model = cleanText(row[cIdx.model]);
-    if (!model) continue;
-    const date = formatDateCell(row[cIdx.dateClose]) || formatDateCell(row[cIdx.dateReg]);
+  raw.forEach(row=>{
+    const status = cleanText(row.status);
+    if (!RASKHOD_STATUSES.has(status)) return; // не считается расходом
+    const model = cleanText(row.model);
+    if (!model) return;
+    const date = formatDateCell(row.dateClose) || formatDateCell(row.dateReg);
     out.push({
       date,
-      rdt_code: cleanText(row[cIdx.rdt]),
-      oblast: cleanText(row[cIdx.oblast]),
-      filial: cleanText(row[cIdx.filial]),
+      rdt_code: cleanText(row.rdt),
+      oblast: cleanText(row.oblast),
+      filial: cleanText(row.filial),
       model_name: model,
-      vendor_raw: cleanText(row[cIdx.vendor]),
-      freq: cleanText(row[cIdx.freq]),
-      serial: cleanText(row[cIdx.sn_tt]) || cleanText(row[cIdx.sn_final]) || cleanText(row[cIdx.sn_remedy])
+      vendor_raw: cleanText(row.vendor),
+      freq: cleanText(row.freq),
+      serial: cleanText(row.sn_tt) || cleanText(row.sn_final) || cleanText(row.sn_remedy)
     });
-  }
+  });
   return out;
 }
 
@@ -666,26 +697,31 @@ function resolveTip(r){
 // WEB WORKER — тяжёлый разбор Excel (XLSX.read + построчный парсинг) выполняется
 // в фоновом потоке, чтобы вкладка браузера не «зависала» на больших файлах
 // (наряды «Расход» — по 80 000+ строк, файл десятки МБ). Воркер собран «на лету»
-// из тех же чистых функций, что объявлены выше (readSheetAoa … RASKHOD_STATUSES),
-// поэтому логика разбора гарантированно одна и та же везде.
+// из тех же чистых функций, что объявлены выше (readHeaderRow … RASKHOD_STATUSES),
+// поэтому логика разбора гарантированно одна и та же везде. Читаем ячейки напрямую
+// по адресу (см. extractColumnsDirect) — так в память попадают только нужные ~11
+// столбцов, а не все 63, что и было вероятной причиной падения вкладки по памяти.
 const WORKER_SRC = `
 importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
 const RASKHOD_STATUSES = new Set(${JSON.stringify([...RASKHOD_STATUSES])});
 ${cleanText.toString()}
+${excelSerialToYYYYMM.toString()}
 ${formatDateCell.toString()}
-${readSheetAoa.toString()}
+${readHeaderRow.toString()}
 ${detectKindFromHeader.toString()}
-${parseSheet1FromAoa.toString()}
-${parseNaradSheetFromAoa.toString()}
+${extractColumnsDirect.toString()}
+${parseSheet1FromWs.toString()}
+${parseNaradSheetFromWs.toString()}
 self.onmessage = function(e){
   const {id, arrayBuffer} = e.data;
   try{
-    const wb = XLSX.read(arrayBuffer, {type:'array', cellDates:true});
-    const aoa = readSheetAoa(wb);
-    if (!aoa.length){ postMessage({id, kind:'sap', parsedRows:[]}); return; }
-    const header = aoa[0].map(h=>cleanText(h));
+    const wb = XLSX.read(arrayBuffer, {type:'array', cellHTML:false, cellFormula:false, cellStyles:false});
+    const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
+    const ws = wb.Sheets[wsName];
+    const header = readHeaderRow(ws);
+    if (!header.length){ postMessage({id, kind:'sap', parsedRows:[]}); return; }
     const kind = detectKindFromHeader(header);
-    const parsedRows = kind==='narad' ? parseNaradSheetFromAoa(aoa) : parseSheet1FromAoa(aoa);
+    const parsedRows = kind==='narad' ? parseNaradSheetFromWs(ws) : parseSheet1FromWs(ws);
     postMessage({id, kind, parsedRows});
   }catch(err){
     postMessage({id, error: (err && err.message) || String(err)});
@@ -693,21 +729,50 @@ self.onmessage = function(e){
 };
 `;
 let _workerBlobUrl = null;
+const WORKER_TIMEOUT_MS = 45000;
 function parseFileInWorker(arrayBuffer){
   return new Promise((resolve, reject)=>{
     if (!_workerBlobUrl) _workerBlobUrl = URL.createObjectURL(new Blob([WORKER_SRC], {type:'application/javascript'}));
     const worker = new Worker(_workerBlobUrl);
     const id = Math.random();
+    let done = false;
+    const finish = (fn, arg)=>{ if (done) return; done = true; clearTimeout(timer); worker.terminate(); fn(arg); };
+    const timer = setTimeout(()=>finish(reject, new Error('Воркер не ответил за отведённое время (таймаут)')), WORKER_TIMEOUT_MS);
     worker.onmessage = e=>{
       if (e.data.id !== id) return;
-      worker.terminate();
-      if (e.data.error) reject(new Error(e.data.error));
-      else resolve(e.data);
+      if (e.data.error) finish(reject, new Error(e.data.error));
+      else finish(resolve, e.data);
     };
-    worker.onerror = err=>{ worker.terminate(); reject(err); };
+    worker.onerror = err=>finish(reject, err);
     const copy = arrayBuffer.slice(0); // копия — transfer «опустошает» буфер, а он может понадобиться повторно
     worker.postMessage({id, arrayBuffer: copy}, [copy]);
   });
+}
+
+// Разбор на ГЛАВНОМ потоке — запасной вариант, если воркер недоступен, завис
+// или его заблокировала политика браузера (importScripts с CDN и т.п.). Использует
+// те же лёгкие функции с прямым построчным чтением нужных столбцов.
+function parseFileMainThread(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, {type:'array', cellHTML:false, cellFormula:false, cellStyles:false});
+  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
+  const ws = wb.Sheets[wsName];
+  const header = readHeaderRow(ws);
+  if (!header.length) return {kind:'sap', parsedRows:[]};
+  const kind = detectKindFromHeader(header);
+  const parsedRows = kind==='narad' ? parseNaradSheetFromWs(ws) : parseSheet1FromWs(ws);
+  return {kind, parsedRows};
+}
+
+// Пробуем воркер (не блокирует вкладку); если он не отвечает/падает — считаем на
+// главном потоке (может ненадолго заблокировать интерфейс, но гарантированно сработает).
+async function parseFileSmart(arrayBuffer, fileName){
+  try{
+    return await parseFileInWorker(arrayBuffer);
+  }catch(e){
+    console.warn(`Фоновый разбор файла «${fileName}» не удался (${e.message}) — считаю на основном потоке`, e);
+    toast(`«${fileName}»: фоновый разбор не сработал, считаю напрямую (может занять время)`);
+    return parseFileMainThread(arrayBuffer);
+  }
 }
 
 async function classifyAll(){
@@ -719,7 +784,7 @@ async function classifyAll(){
 
   // тяжёлый разбор каждого файла — параллельно, в фоновых потоках
   const parseResults = await Promise.all(files.map(f =>
-    parseFileInWorker(f.arrayBuffer).then(res => ({f, ...res}))
+    parseFileSmart(f.arrayBuffer, f.name).then(res => ({f, ...res}))
   ));
 
   parseResults.forEach(({f, kind, parsedRows})=>{
