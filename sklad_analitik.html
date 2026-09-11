@@ -535,10 +535,23 @@ function toPeriod(dateStr){
   return m ? `${m[1]}-${m[2]}` : null;
 }
 
-function parseSheet1(wb){
+// ── Функции ниже (readSheetAoa … parseNaradSheetFromAoa) — ЧИСТЫЕ, без обращения к
+// Firestore/словарям/DOM. Это намеренно: тот же код выполняется и на главном потоке,
+// и внутри Web Worker (см. WORKER_SRC ниже), куда вынесен весь тяжёлый разбор файла,
+// чтобы вкладка браузера не «зависала» на больших выгрузках (наряды — по 80 000+ строк).
+function readSheetAoa(wb){
   const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
   const ws = wb.Sheets[wsName];
-  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+}
+
+function detectKindFromHeader(header){
+  const h = header.map(x=>cleanText(x).toLowerCase());
+  if (h.some(x=>x.startsWith('id наряда') || x==='sn_tt')) return 'narad';
+  return 'sap';
+}
+
+function parseSheet1FromAoa(aoa){
   if (!aoa.length) return [];
   const header = aoa[0].map(h=>String(h||'').trim());
   const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
@@ -582,17 +595,6 @@ function resolveRegion(r){
   return {region:null, src:'unresolved'};
 }
 
-// ── Определение формата листа: сырая выгрузка SAP (Склад/Завод/Партия) или
-// выгрузка нарядов на установку (ID наряда/sn_tt — файлы «Расход» с реальными данными). ──
-function detectSheetKind(wb){
-  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
-  const ws = wb.Sheets[wsName];
-  const first = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, range:0, defval:''})[0] || [];
-  const header = first.map(h=>cleanText(h).toLowerCase());
-  if (header.some(h=>h.startsWith('id наряда') || h==='sn_tt')) return 'narad';
-  return 'sap';
-}
-
 function formatDateCell(v){
   if (v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}`;
   const s = cleanText(v);
@@ -604,10 +606,7 @@ function formatDateCell(v){
 }
 
 // ── Разбор выгрузки нарядов на установку (файлы «Расход») ──
-function parseNaradSheet(wb){
-  const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
-  const ws = wb.Sheets[wsName];
-  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+function parseNaradSheetFromAoa(aoa){
   if (!aoa.length) return [];
   const header = aoa[0].map(h=>cleanText(h));
   const idx = name => header.findIndex(h => h.toLowerCase().startsWith(name.toLowerCase()));
@@ -663,21 +662,70 @@ function resolveTip(r){
   return {tip, flag};
 }
 
-function classifyAll(){
+// ══════════════════════════════════════════════════════════════
+// WEB WORKER — тяжёлый разбор Excel (XLSX.read + построчный парсинг) выполняется
+// в фоновом потоке, чтобы вкладка браузера не «зависала» на больших файлах
+// (наряды «Расход» — по 80 000+ строк, файл десятки МБ). Воркер собран «на лету»
+// из тех же чистых функций, что объявлены выше (readSheetAoa … RASKHOD_STATUSES),
+// поэтому логика разбора гарантированно одна и та же везде.
+const WORKER_SRC = `
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+const RASKHOD_STATUSES = new Set(${JSON.stringify([...RASKHOD_STATUSES])});
+${cleanText.toString()}
+${formatDateCell.toString()}
+${readSheetAoa.toString()}
+${detectKindFromHeader.toString()}
+${parseSheet1FromAoa.toString()}
+${parseNaradSheetFromAoa.toString()}
+self.onmessage = function(e){
+  const {id, arrayBuffer} = e.data;
+  try{
+    const wb = XLSX.read(arrayBuffer, {type:'array', cellDates:true});
+    const aoa = readSheetAoa(wb);
+    if (!aoa.length){ postMessage({id, kind:'sap', parsedRows:[]}); return; }
+    const header = aoa[0].map(h=>cleanText(h));
+    const kind = detectKindFromHeader(header);
+    const parsedRows = kind==='narad' ? parseNaradSheetFromAoa(aoa) : parseSheet1FromAoa(aoa);
+    postMessage({id, kind, parsedRows});
+  }catch(err){
+    postMessage({id, error: (err && err.message) || String(err)});
+  }
+};
+`;
+let _workerBlobUrl = null;
+function parseFileInWorker(arrayBuffer){
+  return new Promise((resolve, reject)=>{
+    if (!_workerBlobUrl) _workerBlobUrl = URL.createObjectURL(new Blob([WORKER_SRC], {type:'application/javascript'}));
+    const worker = new Worker(_workerBlobUrl);
+    const id = Math.random();
+    worker.onmessage = e=>{
+      if (e.data.id !== id) return;
+      worker.terminate();
+      if (e.data.error) reject(new Error(e.data.error));
+      else resolve(e.data);
+    };
+    worker.onerror = err=>{ worker.terminate(); reject(err); };
+    const copy = arrayBuffer.slice(0); // копия — transfer «опустошает» буфер, а он может понадобиться повторно
+    worker.postMessage({id, arrayBuffer: copy}, [copy]);
+  });
+}
+
+async function classifyAll(){
   rows = [];
   unresolvedRegions = {};
   unresolvedPartiya = {};
   unresolvedModels = {};
   discrepancies = [];
 
-  files.forEach(f=>{
-    const wb = XLSX.read(f.arrayBuffer, {type:'array', cellDates:true});
-    const kind = detectSheetKind(wb);
+  // тяжёлый разбор каждого файла — параллельно, в фоновых потоках
+  const parseResults = await Promise.all(files.map(f =>
+    parseFileInWorker(f.arrayBuffer).then(res => ({f, ...res}))
+  ));
 
+  parseResults.forEach(({f, kind, parsedRows})=>{
     if (kind === 'narad'){
       // ── выгрузка нарядов на установку (файлы «Расход») ──
-      const parsed = parseNaradSheet(wb);
-      parsed.forEach(r=>{
+      parsedRows.forEach(r=>{
         const region = resolveRegionForFilial(r);
         const rdt = RDT_CODE_MAP[r.rdt_code] || (region ? ZONE_BY_REGION[region] : null) || null;
         const vendor = normalizeVendorName(r.vendor_raw);
@@ -706,8 +754,7 @@ function classifyAll(){
 
     // ── сырая выгрузка SAP (Наличие / Поступление, а также «Расход» в том же формате) ──
     const date = extractDateFromName(f.name);
-    const parsed = parseSheet1(wb);
-    parsed.forEach(r=>{
+    parsedRows.forEach(r=>{
       const {tip, flag} = resolveTip(r);
       const {region} = resolveRegion(r);
       const rdt = region ? (ZONE_BY_REGION[region]||null) : null;
@@ -774,13 +821,25 @@ function renderStats(){
 }
 
 document.getElementById('btnProcess').addEventListener('click', async ()=>{
-  if (!dictLoaded) await loadDictionaries();
-  classifyAll();
-  renderStats();
-  renderReviewTables();
-  renderDict();
-  populateForecastMaterials();
-  toast('Обработка завершена');
+  const btn = document.getElementById('btnProcess');
+  const origLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,48,135,.3);border-top-color:var(--navy)"></span>Обработка… (большие файлы — до минуты, вкладка не зависает)';
+  try{
+    if (!dictLoaded) await loadDictionaries();
+    await classifyAll();
+    renderStats();
+    renderReviewTables();
+    renderDict();
+    populateForecastMaterials();
+    toast('Обработка завершена');
+  }catch(e){
+    console.error('classifyAll failed', e);
+    toast('Ошибка при разборе файла: ' + (e.message||e));
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = origLabel;
+  }
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -876,7 +935,7 @@ async function applyReviewAndReclassify(){
   } else {
     toast('Нечего сохранять — заполните хотя бы одно поле');
   }
-  classifyAll();
+  await classifyAll();
   renderStats();
   renderReviewTables();
   renderDict();
