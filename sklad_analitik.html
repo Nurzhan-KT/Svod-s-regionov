@@ -164,6 +164,12 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
       </div>
     </div>
 
+    <div class="card" id="diagCard" style="display:none">
+      <h2>🩺 Ход обработки (диагностика)</h2>
+      <p class="hint">Не исчезает и не сворачивается сама — если обработка зависнет, здесь будет видно, на каком шаге, и текст ошибки (если она есть), можно скопировать.</p>
+      <div id="diagLog" style="font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.6;background:#0d1117;color:#c9d1d9;padding:12px;border-radius:var(--r2);max-height:320px;overflow:auto;white-space:pre-wrap"></div>
+    </div>
+
     <div class="card" id="resultsCard" style="display:none">
       <h2>📊 Результат обработки</h2>
       <div class="stats" id="statsBox"></div>
@@ -442,6 +448,39 @@ function toast(msg){
 }
 
 // ══════════════════════════════════════════════════════════════
+// ДИАГНОСТИКА — постоянная, ничего не пропадает и не сворачивается.
+// Показывает шаги обработки с точным временем, чтобы при зависании
+// было видно, на чём именно остановилось, и полный текст ошибки.
+// ══════════════════════════════════════════════════════════════
+let _diagT0 = null;
+function diagReset(){
+  _diagT0 = performance.now();
+  const box = document.getElementById('diagLog');
+  const card = document.getElementById('diagCard');
+  if (box) box.textContent = '';
+  if (card) card.style.display = 'block';
+}
+function logDiag(msg, isError){
+  const box = document.getElementById('diagLog');
+  if (!box) return;
+  msg = String(msg);
+  if (msg.length > 1500) msg = msg.slice(0,1500) + '… (обрезано)';
+  const t = _diagT0!=null ? ((performance.now()-_diagT0)/1000).toFixed(1)+'с' : '0.0с';
+  const line = document.createElement('div');
+  if (isError) line.style.color = '#ff7b72';
+  line.textContent = `[+${t}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  console.log(`[diag +${t}]`, msg);
+}
+window.addEventListener('error', e=>{
+  logDiag(`Необработанная ошибка: ${e.message} (${e.filename}:${e.lineno})`, true);
+});
+window.addEventListener('unhandledrejection', e=>{
+  logDiag(`Необработанный отказ промиса: ${(e.reason && (e.reason.stack||e.reason.message)) || e.reason}`, true);
+});
+
+// ══════════════════════════════════════════════════════════════
 // LOAD/SAVE DICTIONARIES FROM FIRESTORE (merge on top of seeds)
 // ══════════════════════════════════════════════════════════════
 async function loadDictionaries(){
@@ -492,13 +531,18 @@ document.querySelectorAll('.drop-sm').forEach(zone=>{
 });
 
 function handleFiles(fileListObj, type){
+  if (!_diagT0) diagReset();
   Array.from(fileListObj).forEach(f=>{
+    logDiag(`Выбран файл «${f.name}» (${(f.size/1024/1024).toFixed(1)} МБ) → окно «${type}». Читаю с диска…`);
+    const t0 = performance.now();
     const reader = new FileReader();
     reader.onload = ev=>{
+      logDiag(`«${f.name}»: прочитан с диска за ${((performance.now()-t0)/1000).toFixed(1)}с`);
       const guessed = guessReportType(f.name);
       files.push({name:f.name, label:f.name.replace(/\.(xlsx|xls)$/i,''), arrayBuffer:ev.target.result, size:f.size, type, mismatch: guessed!==type});
       renderFileList();
     };
+    reader.onerror = ()=>{ logDiag(`«${f.name}»: ОШИБКА чтения с диска — ${reader.error}`, true); };
     reader.readAsArrayBuffer(f);
   });
 }
@@ -715,36 +759,50 @@ ${parseNaradSheetFromWs.toString()}
 self.onmessage = function(e){
   const {id, arrayBuffer} = e.data;
   try{
+    postMessage({id, progress: 'worker_started, bytes='+arrayBuffer.byteLength});
+    const t0 = Date.now();
     const wb = XLSX.read(arrayBuffer, {type:'array', cellHTML:false, cellFormula:false, cellStyles:false});
+    postMessage({id, progress: 'XLSX.read done in '+(Date.now()-t0)+'ms, sheets='+wb.SheetNames.join(',')});
     const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
     const ws = wb.Sheets[wsName];
     const header = readHeaderRow(ws);
+    postMessage({id, progress: 'header read, cols='+header.length});
     if (!header.length){ postMessage({id, kind:'sap', parsedRows:[]}); return; }
     const kind = detectKindFromHeader(header);
+    const t1 = Date.now();
     const parsedRows = kind==='narad' ? parseNaradSheetFromWs(ws) : parseSheet1FromWs(ws);
+    postMessage({id, progress: 'row extraction done in '+(Date.now()-t1)+'ms, kind='+kind+', rows='+parsedRows.length});
     postMessage({id, kind, parsedRows});
   }catch(err){
-    postMessage({id, error: (err && err.message) || String(err)});
+    postMessage({id, error: (err && err.message) || String(err), stack: err && err.stack});
   }
 };
 `;
 let _workerBlobUrl = null;
 const WORKER_TIMEOUT_MS = 45000;
-function parseFileInWorker(arrayBuffer){
+function parseFileInWorker(arrayBuffer, fileName){
   return new Promise((resolve, reject)=>{
     if (!_workerBlobUrl) _workerBlobUrl = URL.createObjectURL(new Blob([WORKER_SRC], {type:'application/javascript'}));
-    const worker = new Worker(_workerBlobUrl);
+    logDiag(`«${fileName}»: создаю фоновый поток (Web Worker)…`);
+    let worker;
+    try{ worker = new Worker(_workerBlobUrl); }
+    catch(e){ logDiag(`«${fileName}»: не удалось создать Worker — ${e.message}`, true); reject(e); return; }
     const id = Math.random();
     let done = false;
     const finish = (fn, arg)=>{ if (done) return; done = true; clearTimeout(timer); worker.terminate(); fn(arg); };
-    const timer = setTimeout(()=>finish(reject, new Error('Воркер не ответил за отведённое время (таймаут)')), WORKER_TIMEOUT_MS);
+    const timer = setTimeout(()=>{
+      logDiag(`«${fileName}»: воркер не ответил за ${WORKER_TIMEOUT_MS/1000}с — таймаут, перехожу на запасной путь`, true);
+      finish(reject, new Error('Воркер не ответил за отведённое время (таймаут)'));
+    }, WORKER_TIMEOUT_MS);
     worker.onmessage = e=>{
       if (e.data.id !== id) return;
-      if (e.data.error) finish(reject, new Error(e.data.error));
-      else finish(resolve, e.data);
+      if (e.data.progress){ logDiag(`«${fileName}» [воркер]: ${e.data.progress}`); return; }
+      if (e.data.error){ logDiag(`«${fileName}»: ОШИБКА в воркере — ${e.data.error}`, true); finish(reject, new Error(e.data.error)); }
+      else { logDiag(`«${fileName}»: воркер вернул результат (${e.data.parsedRows.length} строк)`); finish(resolve, e.data); }
     };
-    worker.onerror = err=>finish(reject, err);
+    worker.onerror = err=>{ logDiag(`«${fileName}»: воркер упал — ${err.message}`, true); finish(reject, err); };
     const copy = arrayBuffer.slice(0); // копия — transfer «опустошает» буфер, а он может понадобиться повторно
+    logDiag(`«${fileName}»: передаю файл воркеру (${(copy.byteLength/1024/1024).toFixed(1)} МБ)…`);
     worker.postMessage({id, arrayBuffer: copy}, [copy]);
   });
 }
@@ -752,14 +810,19 @@ function parseFileInWorker(arrayBuffer){
 // Разбор на ГЛАВНОМ потоке — запасной вариант, если воркер недоступен, завис
 // или его заблокировала политика браузера (importScripts с CDN и т.п.). Использует
 // те же лёгкие функции с прямым построчным чтением нужных столбцов.
-function parseFileMainThread(arrayBuffer){
+function parseFileMainThread(arrayBuffer, fileName){
+  logDiag(`«${fileName}»: разбор на основном потоке — XLSX.read()…`);
+  const t0 = performance.now();
   const wb = XLSX.read(arrayBuffer, {type:'array', cellHTML:false, cellFormula:false, cellStyles:false});
+  logDiag(`«${fileName}»: XLSX.read() занял ${((performance.now()-t0)/1000).toFixed(1)}с, листы: ${wb.SheetNames.join(', ')}`);
   const wsName = wb.SheetNames.find(n => /sheet1/i.test(n)) || wb.SheetNames[0];
   const ws = wb.Sheets[wsName];
   const header = readHeaderRow(ws);
-  if (!header.length) return {kind:'sap', parsedRows:[]};
+  if (!header.length){ logDiag(`«${fileName}»: лист пуст`); return {kind:'sap', parsedRows:[]}; }
   const kind = detectKindFromHeader(header);
+  const t1 = performance.now();
   const parsedRows = kind==='narad' ? parseNaradSheetFromWs(ws) : parseSheet1FromWs(ws);
+  logDiag(`«${fileName}»: извлечение строк заняло ${((performance.now()-t1)/1000).toFixed(1)}с, тип=${kind}, строк=${parsedRows.length}`);
   return {kind, parsedRows};
 }
 
@@ -767,11 +830,11 @@ function parseFileMainThread(arrayBuffer){
 // главном потоке (может ненадолго заблокировать интерфейс, но гарантированно сработает).
 async function parseFileSmart(arrayBuffer, fileName){
   try{
-    return await parseFileInWorker(arrayBuffer);
+    return await parseFileInWorker(arrayBuffer, fileName);
   }catch(e){
     console.warn(`Фоновый разбор файла «${fileName}» не удался (${e.message}) — считаю на основном потоке`, e);
     toast(`«${fileName}»: фоновый разбор не сработал, считаю напрямую (может занять время)`);
-    return parseFileMainThread(arrayBuffer);
+    return parseFileMainThread(arrayBuffer, fileName);
   }
 }
 
@@ -782,10 +845,13 @@ async function classifyAll(){
   unresolvedModels = {};
   discrepancies = [];
 
+  logDiag(`Начинаю разбор ${files.length} файл(ов)…`);
   // тяжёлый разбор каждого файла — параллельно, в фоновых потоках
   const parseResults = await Promise.all(files.map(f =>
     parseFileSmart(f.arrayBuffer, f.name).then(res => ({f, ...res}))
   ));
+  logDiag(`Все файлы разобраны, начинаю сопоставление со словарями…`);
+  const tEnrich = performance.now();
 
   parseResults.forEach(({f, kind, parsedRows})=>{
     if (kind === 'narad'){
@@ -858,6 +924,7 @@ async function classifyAll(){
 
   // dedupe discrepancies/unresolved for display
   discrepancies = discrepancies.filter((d,i,arr)=>arr.findIndex(x=>x.wh_code===d.wh_code && x.wh_name===d.wh_name)===i);
+  logDiag(`Сопоставление заняло ${((performance.now()-tEnrich)/1000).toFixed(1)}с. Готово: ${rows.length} строк.`);
 }
 
 function renderStats(){
@@ -890,17 +957,21 @@ document.getElementById('btnProcess').addEventListener('click', async ()=>{
   const origLabel = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,48,135,.3);border-top-color:var(--navy)"></span>Обработка… (большие файлы — до минуты, вкладка не зависает)';
+  if (!_diagT0) diagReset();
+  logDiag(`Нажата «Обработать файлы» — файлов: ${files.length}`);
   try{
-    if (!dictLoaded) await loadDictionaries();
+    if (!dictLoaded){ logDiag('Синхронизирую словари с Firestore…'); await loadDictionaries(); logDiag('Словари готовы.'); }
     await classifyAll();
     renderStats();
     renderReviewTables();
     renderDict();
     populateForecastMaterials();
+    logDiag('✅ Обработка завершена успешно.');
     toast('Обработка завершена');
   }catch(e){
     console.error('classifyAll failed', e);
-    toast('Ошибка при разборе файла: ' + (e.message||e));
+    logDiag(`❌ ОШИБКА: ${e.message}${e.stack?'\n'+e.stack:''}`, true);
+    toast('Ошибка при разборе файла — подробности в панели диагностики ниже');
   }finally{
     btn.disabled = false;
     btn.innerHTML = origLabel;
