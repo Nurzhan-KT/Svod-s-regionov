@@ -977,7 +977,9 @@ function renderStats(){
   const regionMissing = Object.values(unresolvedRegions).reduce((s,x)=>s+x.count,0);
   const partiyaMissing = Object.values(unresolvedPartiya).reduce((s,x)=>s+x.count,0);
   const modelMissing = Object.values(unresolvedModels).reduce((s,x)=>s+x.count,0);
-  const ontRows = rows.filter(r=>ontMaterials.has(r.material)).length;
+  // ONT-строка = известный код материала ИЛИ уже есть вендор+частота (наряды дают их
+  // напрямую, даже пока модель не привязана к коду материала — см. modelMissing выше).
+  const ontRows = rows.filter(r=>ontMaterials.has(r.material) || (r.vendor && r.freq)).length;
   const nalCount = rows.filter(r=>r.report_type==='nalichie').length;
   const inCount = rows.filter(r=>r.report_type==='postuplenie').length;
   const outCount = rows.filter(r=>r.report_type==='raskhod').length;
@@ -1667,12 +1669,24 @@ async function exportPivot(){
 function populateForecastMaterials(){
   const sel = document.getElementById('fcMaterial');
   const mats = [...new Set(rows.map(r=>r.material+'||'+r.material_name))].sort();
-  sel.innerHTML = mats.map(m=>{ const [code,name]=m.split('||'); return `<option value="${code}">${name} (${code})</option>`; }).join('');
+  // Значение — пара «код||название», не только код: у моделей из нарядов без привязки
+  // к коду материала (см. «Модели оборудования из нарядов без кода материала» на вкладке
+  // «Проверка и словари») код пустой, и одного кода недостаточно, чтобы отличить одну
+  // модель от другой — раньше это приводило к тому, что выбор такой модели в прогнозе
+  // молча показывал вообще все материалы сразу (пустой код трактовался как «без фильтра»).
+  sel.innerHTML = mats.map(m=>{
+    const [code,name]=m.split('||');
+    const esc = String(m).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<option value="${esc}">${name}${code?' ('+code+')':' — без кода материала'}</option>`;
+  }).join('');
 }
 
 async function buildForecast(){
   const dim = document.getElementById('fcDim').value;
-  const material = document.getElementById('fcMaterial').value;
+  const materialSel = document.getElementById('fcMaterial').value; // "код||название"
+  const selIdx = materialSel.indexOf('||');
+  const selCode = selIdx>=0 ? materialSel.slice(0,selIdx) : materialSel;
+  const selName = selIdx>=0 ? materialSel.slice(selIdx+2) : '';
   const infoBox = document.getElementById('snapshotsInfo');
   const box = document.getElementById('forecastBox');
   try{
@@ -1688,7 +1702,7 @@ async function buildForecast(){
     const series = {};
     snapshots.forEach(s=>{
       (s.items||[]).forEach(it=>{
-        if (material && it.material !== material) return;
+        if (materialSel && ((it.material||'')!==selCode || (it.material_name||'')!==selName)) return;
         const key = it[dim] || '(не указано)';
         if (!series[key]) series[key] = [];
         series[key].push({date:s.date, qty:it.qty});
