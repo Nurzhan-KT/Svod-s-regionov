@@ -916,10 +916,17 @@ async function classifyAll(){
           if (!unresolvedRegions[k]) unresolvedRegions[k] = {key:k, isFilial:true, zavod:'', wh_code:'', wh_name:r.filial||r.oblast, count:0};
           unresolvedRegions[k].count++;
         }
+        // Для анализа (сводные/прогноз): пока модель не привязана к коду материала,
+        // группируем по Вендору+Частоте, а не по точному названию модели — иначе
+        // «GPON_ONT (B-FOCuS O-4F2PW)» и «GPON_ONT (B-FOCuS O-4F2P)» (по сути одно и
+        // то же оборудование) считались бы двумя разными позициями. В самом списке
+        // «Модели без кода материала» (unresolvedModels выше) точное название модели
+        // не меняется — это отдельная переменная, привязка кода по-прежнему точечная.
+        const material_group = material ? r.model_name : `ONT ${vendor||'—'} ${r.freq||'—'}`;
         rows.push({
           source: f.label, source_group: guessSourceGroup(f.name) || f.label, date: r.date || extractDateFromName(f.name), report_type: 'raskhod',
           sklad_name: r.filial || r.oblast, sklad_code: '', zavod: '',
-          material, material_name: r.model_name,
+          material, material_name: r.model_name, material_group,
           tip: '', region, rdt, vendor, freq: r.freq, price: '', unit: 'ШТ',
           qty: 1, value: 0, partiya: r.serial, spp: '', spp_name: '',
           tab: '', fio: ''
@@ -959,7 +966,7 @@ async function classifyAll(){
       rows.push({
         source: f.label, source_group: guessSourceGroup(f.name) || f.label, date, report_type: f.type || 'nalichie',
         sklad_name: r.wh_name, sklad_code: r.wh_code, zavod: r.zavod,
-        material: r.material, material_name: r.material_name,
+        material: r.material, material_name: r.material_name, material_group: r.material_name,
         tip, region, rdt, vendor, freq, price, unit: r.unit,
         qty: r.qty, value: r.value, partiya: r.partiya, spp: r.spp, spp_name: sppName,
         tab: r.tab, fio: r.fio
@@ -1229,7 +1236,11 @@ async function exportEnriched(){
 // считается как: остаток из предыдущего сохранённого снимка + Поступление − Расход
 // за текущий период. Позиции, для которых в этой загрузке вообще ничего нет
 // (ни наличия, ни прихода/расхода), переносятся из предыдущего снимка без изменений.
-function entityKey(it){ return [it.region||'—', it.rdt||'—', it.sklad_name, it.material, it.material_name].join('|'); }
+// material_group (не material_name!) — именно она определяет «одна и та же позиция
+// со временем»: для нарядов без кода материала это Вендор+Частота (см. classifyAll),
+// чтобы разные написания одной модели не считались разными позициями в истории/прогнозе.
+// Фолбэк на material_name — для совместимости со снимками, сохранёнными до этого поля.
+function entityKey(it){ return [it.region||'—', it.rdt||'—', it.sklad_name, it.material, it.material_group||it.material_name].join('|'); }
 
 // Считает итоговые items одного периода: cur = агрегаты за этот период из текущей
 // загрузки, prevMap = остатки из предыдущего периода (Firestore или уже посчитанные
@@ -1237,8 +1248,8 @@ function entityKey(it){ return [it.region||'—', it.rdt||'—', it.sklad_name, 
 function computeSnapshotItems(dateRows, prevMap){
   const agg = {};
   dateRows.forEach(r=>{
-    const key = entityKey({region:r.region, rdt:r.rdt, sklad_name:r.sklad_name, material:r.material, material_name:r.material_name});
-    if (!agg[key]) agg[key] = {region:r.region||'—', rdt:r.rdt||'—', sklad_name:r.sklad_name, material:r.material, material_name:r.material_name, nal_qty:0, nal_value:0, in_qty:0, out_qty:0, hasNal:false};
+    const key = entityKey({region:r.region, rdt:r.rdt, sklad_name:r.sklad_name, material:r.material, material_group:r.material_group});
+    if (!agg[key]) agg[key] = {region:r.region||'—', rdt:r.rdt||'—', sklad_name:r.sklad_name, material:r.material, material_name:r.material_name, material_group:r.material_group, nal_qty:0, nal_value:0, in_qty:0, out_qty:0, hasNal:false};
     const e = agg[key];
     if (r.report_type==='postuplenie') e.in_qty += r.qty;
     else if (r.report_type==='raskhod') e.out_qty += r.qty;
@@ -1262,7 +1273,7 @@ function computeSnapshotItems(dateRows, prevMap){
         value = prev ? (prev.value||0) : 0;
         source = 'carried'; carriedCount++;
       }
-      items.push({region:cur.region, rdt:cur.rdt, sklad_name:cur.sklad_name, material:cur.material, material_name:cur.material_name, qty, value, qty_in, qty_out, source});
+      items.push({region:cur.region, rdt:cur.rdt, sklad_name:cur.sklad_name, material:cur.material, material_name:cur.material_name, material_group:cur.material_group, qty, value, qty_in, qty_out, source});
     } else if (prev){
       untouchedCount++;
       items.push({...prev, qty_in:0, qty_out:0, source:'untouched'});
@@ -1318,7 +1329,7 @@ const PIVOT_FIELD_DEFS = [
   {key:'rdt', label:'РДТ (зона)'},
   {key:'tip', label:'Тип склада'},
   {key:'sklad_name', label:'Склад'},
-  {key:'material_name', label:'Материал'},
+  {key:'material_group', label:'Материал'},
   {key:'vendor', label:'Вендор'},
   {key:'freq', label:'Частота/тип'},
   {key:'spp_name', label:'Программа (Наименование СПП)'}
@@ -1668,7 +1679,10 @@ async function exportPivot(){
 // ══════════════════════════════════════════════════════════════
 function populateForecastMaterials(){
   const sel = document.getElementById('fcMaterial');
-  const mats = [...new Set(rows.map(r=>r.material+'||'+r.material_name))].sort();
+  // material_group, а не точное название модели: наряды без кода материала группируются
+  // по Вендору+Частоте (см. classifyAll), чтобы «GPON_ONT (...PW)» и «GPON_ONT (...P)» —
+  // по сути одно оборудование — попадали в прогнозе в одну позицию, а не в разные.
+  const mats = [...new Set(rows.map(r=>r.material+'||'+r.material_group))].sort();
   // Значение — пара «код||название», не только код: у моделей из нарядов без привязки
   // к коду материала (см. «Модели оборудования из нарядов без кода материала» на вкладке
   // «Проверка и словари») код пустой, и одного кода недостаточно, чтобы отличить одну
@@ -1702,7 +1716,8 @@ async function buildForecast(){
     const series = {};
     snapshots.forEach(s=>{
       (s.items||[]).forEach(it=>{
-        if (materialSel && ((it.material||'')!==selCode || (it.material_name||'')!==selName)) return;
+        const itGroup = it.material_group || it.material_name || '';
+        if (materialSel && ((it.material||'')!==selCode || itGroup!==selName)) return;
         const key = it[dim] || '(не указано)';
         if (!series[key]) series[key] = [];
         series[key].push({date:s.date, qty:it.qty});
