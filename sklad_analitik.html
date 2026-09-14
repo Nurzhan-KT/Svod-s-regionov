@@ -856,10 +856,18 @@ async function classifyAll(){
   discrepancies = [];
 
   logDiag(`Начинаю разбор ${files.length} файл(ов)…`);
-  // тяжёлый разбор каждого файла — параллельно, в фоновых потоках
-  const parseResults = await Promise.all(files.map(f =>
-    parseFileSmart(f.arrayBuffer, f.name).then(res => ({f, ...res}))
-  ));
+  // Разбираем файлы ПО ОДНОМУ, не все сразу: у больших файлов (наряды) XLSX.read()
+  // сам по себе требует много памяти, и несколько таких разборов одновременно
+  // (было через Promise.all) суммарно легко исчерпывают память вкладки — именно это,
+  // судя по всему, и роняло страницу при загрузке 3 файлов сразу. Последовательно —
+  // медленнее, но безопасно: пик памяти = память ОДНОГО файла, а не суммы всех.
+  const parseResults = [];
+  for (let i=0; i<files.length; i++){
+    const f = files[i];
+    logDiag(`Файл ${i+1} из ${files.length}: «${f.name}»…`);
+    const res = await parseFileSmart(f.arrayBuffer, f.name);
+    parseResults.push({f, ...res});
+  }
   logDiag(`Все файлы разобраны, начинаю сопоставление со словарями…`);
   const tEnrich = performance.now();
 
