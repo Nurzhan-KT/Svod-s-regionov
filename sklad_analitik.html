@@ -1168,6 +1168,27 @@ function renderDict(){
 }
 document.getElementById('dictSelect')?.addEventListener('change', renderDict);
 
+// Модели из нарядов с одинаковым Вендором+Частотой почти наверняка одно и то же
+// оборудование под разными написаниями (см. material_group). Чтобы не вбивать один
+// и тот же код материала вручную в каждую строку — при вводе кода он сам подставляется
+// во все ещё пустые строки с тем же вендором и частотой (можно потом поправить вручную).
+document.getElementById('unresolvedModelsBox')?.addEventListener('input', e=>{
+  if (!e.target.matches('input[id^="mm_"]')) return;
+  const val = e.target.value.trim();
+  if (!val) return;
+  const idx = Number(e.target.id.slice(3));
+  const list = getSortedUnresolvedModels();
+  const src = list[idx];
+  if (!src) return;
+  list.forEach((u,i)=>{
+    if (i===idx) return;
+    if ((u.vendor||'').toLowerCase()===(src.vendor||'').toLowerCase() && (u.freq||'')===(src.freq||'')){
+      const other = document.getElementById('mm_'+i);
+      if (other && !other.value.trim()) other.value = val;
+    }
+  });
+});
+
 // ══════════════════════════════════════════════════════════════
 // EXCEL-ЭКСПОРТ (ExcelJS — с реальным форматированием: заливка,
 // границы, объединения, числовые форматы; xlsx.js стили не пишет)
