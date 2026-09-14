@@ -708,7 +708,12 @@ function parseSheet1FromWs(ws){
     {key:'wh_name', match:'Обозначение склада'}, {key:'wh_code', match:'Склад'}, {key:'zavod', match:'Завод'},
     {key:'material', match:'Материал'}, {key:'material_name', match:'Краткий текст'}, {key:'unit', match:'Базовая ЕИ'},
     {key:'qty', match:'СвобИспольз'}, {key:'value', match:'Ст-ть'}, {key:'partiya', match:'Партия'},
-    {key:'spp', match:'СПП-элемент'}, {key:'tab', match:'Таб'}, {key:'fio', match:'ФИО'}
+    // «СПП-элемент» — код (I.24.ODS.34.007/...), «Наименование СПП» — уже готовое человекочитаемое
+    // название той же программы, обе колонки есть в сырой выгрузке SAP. match ищет ПЕРВЫЙ заголовок,
+    // начинающийся с этой строки — «Наименование СПП» стоит в файле раньше «Наименование СПП 2,4»,
+    // так что коллизии с ним нет.
+    {key:'spp', match:'СПП-элемент'}, {key:'spp_name', match:'Наименование СПП'},
+    {key:'tab', match:'Таб'}, {key:'fio', match:'ФИО'}
   ];
   const raw = extractColumnsDirect(ws, specs);
   return raw.map(row=>({
@@ -722,6 +727,7 @@ function parseSheet1FromWs(ws){
     value: Number(row.value)||0,
     partiya: cleanText(row.partiya),
     spp: cleanText(row.spp),
+    spp_name: cleanText(row.spp_name),
     tab: cleanText(row.tab),
     fio: cleanText(row.fio)
   }));
@@ -993,7 +999,10 @@ async function classifyAll(){
           unresolvedPartiya[k].count++;
         }
       }
-      const sppName = dictSpp[r.spp] || '';
+      // Название программы СПП уже есть прямо в выгрузке (колонка «Наименование СПП») —
+      // читаем её напрямую (см. parseSheet1FromWs), а накопленный словарь dictSpp оставляем
+      // только как подстраховку для старых/нестандартных выгрузок без этой колонки.
+      const sppName = r.spp_name || dictSpp[r.spp] || '';
 
       if (!region){
         const k = `${r.zavod}_${r.wh_code}`;
@@ -1218,7 +1227,7 @@ function renderDict(){
     box.innerHTML = entries.length ? `<table><thead><tr><th>Вендор</th><th>Частота</th><th>Код материала</th></tr></thead><tbody>${entries.map(([k,v])=>{ const [vd,fr] = k.split('||'); return `<tr><td>${vd}</td><td>${fr}</td><td>${v}</td></tr>`; }).join('')}</tbody></table><div class="hint" style="padding:8px">Код, назначенный вендору+частоте здесь, применяется ко всем моделям с таким вендором и частотой — даже к новым названиям, которые встретятся в будущих файлах «Расход».</div>` : '<div class="empty">Словарь пуст — заполните код материала в разделе «Проверка» и сохраните</div>';
   } else if (sel==='spp'){
     const entries = Object.entries(dictSpp);
-    box.innerHTML = entries.length ? `<table><thead><tr><th>СПП-элемент</th><th>Название</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — названия СПП вводятся вручную аналитиком в обогащённой выгрузке</div>';
+    box.innerHTML = entries.length ? `<table><thead><tr><th>СПП-элемент</th><th>Название</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table><div class="hint" style="padding:8px">Название СПП обычно берётся прямо из колонки «Наименование СПП» самой выгрузки — этот словарь лишь подстраховка на случай, если в файле такой колонки нет.</div>` : '<div class="empty">Словарь пуст — используется только как подстраховка, когда в выгрузке нет колонки «Наименование СПП» (в обычном случае название берётся прямо из файла и сюда не попадает)</div>';
   } else if (sel==='ont'){
     box.innerHTML = `<table><thead><tr><th>Код материала</th></tr></thead><tbody>${[...ontMaterials].map(m=>`<tr><td>${m}</td></tr>`).join('')}</tbody></table>`;
   }
