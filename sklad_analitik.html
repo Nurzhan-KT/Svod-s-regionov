@@ -120,6 +120,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
   <div class="tab" data-page="review">2. Проверка и словари</div>
   <div class="tab" data-page="pivot">3. Сводные таблицы</div>
   <div class="tab" data-page="forecast">4. Прогноз</div>
+  <div class="tab" data-page="ontforecast">5. Прогноз ONT (год)</div>
 </div>
 
 <div class="wrap">
@@ -279,6 +280,26 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
       </div>
       <div id="snapshotsInfo" class="hint" style="margin-top:10px"></div>
       <div class="tblwrap" id="forecastBox" style="margin-top:16px"><div class="empty">—</div></div>
+    </div>
+  </div>
+
+  <!-- ===================== PAGE: ONT YEAR-END FORECAST ===================== -->
+  <div class="page" id="page-ontforecast">
+    <div class="card">
+      <h2>📶 Прогноз по остаткам ONT до конца года</h2>
+      <p class="hint">Строится по данным, уже обработанным на вкладке «Загрузка» (наличие ДРБ+ДТК и наряды «Расход»), <b>по аналогии</b> с ручным отчётом «Прогноз по остаткам ONT»: для каждого вендора — <code>Остаток − (Установлено факт / Полных мес. × Оставшихся мес.) + 0.1</code>. Строка «Установлено факт» — это наряды со статусом «Наряд выполнен»/«Подведение итогов» по оборудованию ONT (наличие вендора+частоты у наряда). «+0.1» — это буквально то же самое, что даёт формула «+10%» в Excel-аналоге (Excel понимает «10%» как число 0.1, а не как надбавку к чему-либо) — сохранено для точного соответствия аналогу, а не потому что это осмысленный запас.</p>
+      <p class="hint">⚠️ Регион в разрезе «по РДТ/регионам» берётся из словаря «Завод → Регион» инструмента — он даёт один город/регион на завод (МВЗ), тогда как в ручном отчёте-аналоге каждый РДТ разбит на несколько областей. Поэтому строк в этом разрезе будет меньше, чем в аналоге — только те регионы, что реально определились по словарю.</p>
+      <div class="row">
+        <div class="field" style="max-width:220px"><label>Полных месяцев в факте (авто, можно поправить)</label>
+          <input type="number" id="ontFullMonths" min="1" max="12" step="1">
+        </div>
+        <div class="field" style="max-width:220px"><label>Остаток месяцев до конца года</label>
+          <input type="number" id="ontRemainMonths" min="0" max="12" step="1">
+        </div>
+        <button class="btn btn-primary" onclick="buildOntForecast()">Построить прогноз ONT</button>
+      </div>
+      <div id="ontForecastInfo" class="hint" style="margin-top:10px"></div>
+      <div id="ontForecastBox" style="margin-top:16px"><div class="empty">—</div></div>
     </div>
   </div>
 
@@ -993,14 +1014,16 @@ async function classifyAll(){
   logDiag(`Сопоставление заняло ${((performance.now()-tEnrich)/1000).toFixed(1)}с. Готово: ${rows.length} строк.`);
 }
 
+// ONT-строка = известный код материала ИЛИ уже есть вендор+частота (наряды дают их
+// напрямую, даже пока модель не привязана к коду материала — см. unresolvedModels).
+function isOntRow(r){ return ontMaterials.has(r.material) || !!(r.vendor && r.freq); }
+
 function renderStats(){
   const total = rows.length;
   const regionMissing = Object.values(unresolvedRegions).reduce((s,x)=>s+x.count,0);
   const partiyaMissing = Object.values(unresolvedPartiya).reduce((s,x)=>s+x.count,0);
   const modelMissing = Object.values(unresolvedModels).reduce((s,x)=>s+x.count,0);
-  // ONT-строка = известный код материала ИЛИ уже есть вендор+частота (наряды дают их
-  // напрямую, даже пока модель не привязана к коду материала — см. modelMissing выше).
-  const ontRows = rows.filter(r=>ontMaterials.has(r.material) || (r.vendor && r.freq)).length;
+  const ontRows = rows.filter(isOntRow).length;
   const nalCount = rows.filter(r=>r.report_type==='nalichie').length;
   const inCount = rows.filter(r=>r.report_type==='postuplenie').length;
   const outCount = rows.filter(r=>r.report_type==='raskhod').length;
@@ -1815,12 +1838,196 @@ function linearForecast(xs, ys){
 }
 
 // ══════════════════════════════════════════════════════════════
+// ПРОГНОЗ ONT ДО КОНЦА ГОДА (по аналогии с ручным отчётом
+// «Прогноз по остаткам ONT на 31.12… с уч. 10%»)
+//
+// Формула на каждую ячейку «вендор»:
+//   Прогноз = Остаток − (УстановленоФакт / ПолныхМесяцев × ОставшихсяМесяцев) + 0.1
+// «+0.1» — буквальный аналог «+10%» из Excel-формулы источника (Excel трактует
+// голое «10%» как число 0.1, а не как надбавку к остатку/расходу — проверено
+// по формулам исходного файла). Сохранено для точного соответствия аналогу.
+// ══════════════════════════════════════════════════════════════
+function detectOntMonthRange(){
+  return [...new Set(rows.filter(r=>r.report_type==='raskhod' && isOntRow(r) && r.date).map(r=>r.date))].sort();
+}
+function prefillOntMonths(){
+  const fullEl = document.getElementById('ontFullMonths');
+  const remEl = document.getElementById('ontRemainMonths');
+  if (!fullEl || fullEl.value) return; // не перезаписываем то, что пользователь уже поправил
+  const months = detectOntMonthRange();
+  // Последний встретившийся месяц считаем неполным (текущий, отчёт формируется в его середине) —
+  // так же, как в аналоге: «8 мес. + сентябрь» = 8 полных месяцев + текущий частичный.
+  const full = Math.max(1, months.length - 1 || 1);
+  fullEl.value = full;
+  remEl.value = Math.max(0, 12 - full);
+}
+document.getElementById('ontFullMonths')?.addEventListener('input', ()=>{
+  const f = Math.max(1, Number(document.getElementById('ontFullMonths').value)||1);
+  document.getElementById('ontRemainMonths').value = Math.max(0, 12-f);
+});
+
+function buildOntForecast(){
+  const box = document.getElementById('ontForecastBox');
+  const infoBox = document.getElementById('ontForecastInfo');
+  if (!rows.length){ box.innerHTML = '<div class="empty">Сначала обработайте файлы на вкладке «Загрузка»</div>'; return; }
+
+  const fullMonths = Math.max(1, Number(document.getElementById('ontFullMonths').value)||1);
+  const remainMonths = Math.max(0, Number(document.getElementById('ontRemainMonths').value)||0);
+
+  // Наличие ONT — только ДРБ+ДТК (как в аналоге, лист «ONT ДРБ и ДТК»), Расход — наряды ONT.
+  const stockRows = rows.filter(r=>r.report_type==='nalichie' && isOntRow(r) && (r.source_group==='DRB'||r.source_group==='DTK'));
+  const installRows = rows.filter(r=>r.report_type==='raskhod' && isOntRow(r));
+
+  if (!stockRows.length && !installRows.length){
+    box.innerHTML = '<div class="empty">Нет данных по ONT — нужны файлы «Наличие» (ДРБ/ДТК, окно загрузки) и «Расход» (наряды на установку)</div>';
+    return;
+  }
+
+  const vendorSet = new Set();
+  stockRows.forEach(r=>{ if (r.vendor) vendorSet.add(r.vendor); });
+  installRows.forEach(r=>{ if (r.vendor) vendorSet.add(r.vendor); });
+  const vendors = [...vendorSet].sort((a,b)=>a.localeCompare(b,'ru'));
+
+  const months = detectOntMonthRange();
+  const stockNoVendorQty = stockRows.filter(r=>!r.vendor).reduce((s,r)=>s+(r.qty||0),0);
+
+  let info = `Наличие ДРБ+ДТК (ONT): ${stockRows.length.toLocaleString('ru-RU')} стр. · Наряды «Расход» (ONT): ${installRows.length.toLocaleString('ru-RU')} стр. · Месяцы в нарядах: ${months.length?months.join(', '):'—'} · Формула: Прогноз = Остаток − (Установлено/${fullMonths}×${remainMonths}) + 0.1`;
+  if (stockNoVendorQty > 0){
+    info += `<br>⚠️ ${fmtNum(stockNoVendorQty)} шт. остатков ONT не попали в разбивку по вендору — партия не привязана к вендору/частоте (см. «Партии без вендора» на вкладке «Проверка и словари»).`;
+  }
+  infoBox.innerHTML = info;
+
+  const fmt = v => v?fmtNum(v):'';
+  const forecastCell = (stock, install) => stock - (install/fullMonths*remainMonths) + 0.1;
+
+  // ================= ПО РДТ / РЕГИОНАМ =================
+  function buildRegionSection(){
+    const rowMeta = new Map(); // key -> {rdt, region}
+    function keyOf(r){
+      const rdt = r.rdt || '—', region = r.region || '—';
+      const k = rdt+'||'+region;
+      if (!rowMeta.has(k)) rowMeta.set(k, {rdt, region});
+      return k;
+    }
+    function aggregate(csOnly){
+      const install = {}, stock = {};
+      installRows.forEach(r=>{
+        if (!r.rdt && !r.region) return;
+        const k = keyOf(r);
+        (install[k] = install[k]||{})[r.vendor] = (install[k]?.[r.vendor]||0) + r.qty;
+      });
+      stockRows.forEach(r=>{
+        if (csOnly && r.tip!=='ЦС') return;
+        if (!r.rdt && !r.region) return;
+        const k = keyOf(r);
+        (stock[k] = stock[k]||{})[r.vendor] = (stock[k]?.[r.vendor]||0) + r.qty;
+      });
+      return {install, stock};
+    }
+    function renderTable(title, csOnly){
+      const {install, stock} = aggregate(csOnly);
+      const keys = [...new Set([...Object.keys(install), ...Object.keys(stock)])];
+      if (!keys.length) return `<h3>${title}</h3><div class="empty">Нет данных</div>`;
+      const rowsInfo = keys.map(k=>({...rowMeta.get(k), k}))
+        .sort((a,b)=> a.rdt.localeCompare(b.rdt,'ru') || a.region.localeCompare(b.region,'ru'));
+
+      let html = `<h3>${title}</h3><div class="tblwrap"><table><thead>`;
+      html += `<tr><th rowspan="2">РДТ</th><th rowspan="2">Регион</th><th colspan="${vendors.length+1}">Установлено факт</th><th colspan="${vendors.length+1}">Остаток</th><th colspan="${vendors.length+1}">Прогноз на конец года</th></tr>`;
+      const vhdr = vendors.map(v=>`<th>${v}</th>`).join('')+'<th>Итого</th>';
+      html += `<tr>${vhdr}${vhdr}${vhdr}</tr></thead><tbody>`;
+
+      const totInst={}, totStk={}, totFc={};
+      let instGrand=0, stkGrand=0, fcGrand=0;
+      rowsInfo.forEach(({rdt,region,k})=>{
+        const iv = install[k]||{}, sv = stock[k]||{};
+        let ri=0, rs=0, rf=0;
+        const iCells=[], sCells=[], fCells=[];
+        vendors.forEach(v=>{
+          const i=iv[v]||0, s=sv[v]||0, f=forecastCell(s,i);
+          ri+=i; rs+=s; rf+=f;
+          totInst[v]=(totInst[v]||0)+i; totStk[v]=(totStk[v]||0)+s; totFc[v]=(totFc[v]||0)+f;
+          iCells.push(`<td>${fmt(i)}</td>`); sCells.push(`<td>${fmt(s)}</td>`); fCells.push(`<td>${fmt(f)}</td>`);
+        });
+        instGrand+=ri; stkGrand+=rs; fcGrand+=rf;
+        html += `<tr><td>${rdt}</td><td>${region}</td>${iCells.join('')}<td><b>${fmt(ri)}</b></td>${sCells.join('')}<td><b>${fmt(rs)}</b></td>${fCells.join('')}<td><b>${fmt(rf)}</b></td></tr>`;
+      });
+      html += `<tr><td colspan="2"><b>Итого</b></td>`;
+      vendors.forEach(v=>html+=`<td><b>${fmt(totInst[v]||0)}</b></td>`); html+=`<td><b>${fmt(instGrand)}</b></td>`;
+      vendors.forEach(v=>html+=`<td><b>${fmt(totStk[v]||0)}</b></td>`); html+=`<td><b>${fmt(stkGrand)}</b></td>`;
+      vendors.forEach(v=>html+=`<td><b>${fmt(totFc[v]||0)}</b></td>`); html+=`<td><b>${fmt(fcGrand)}</b></td>`;
+      html += `</tr></tbody></table></div>`;
+      return html;
+    }
+    return renderTable('МОЛ + ЦС', false) + renderTable('Только ЦС', true);
+  }
+
+  // ================= ПО ЧАСТОТЕ =================
+  function buildFreqSection(){
+    const install = {};
+    installRows.forEach(r=>{
+      const f = r.freq || '—';
+      (install[f] = install[f]||{})[r.vendor] = (install[f]?.[r.vendor]||0) + r.qty;
+    });
+    const stockAll={}, stockCS={}, stockMOL={};
+    stockRows.forEach(r=>{
+      const f = r.freq || '—';
+      (stockAll[f] = stockAll[f]||{})[r.vendor] = (stockAll[f]?.[r.vendor]||0) + r.qty;
+      const t = r.tip==='ЦС' ? stockCS : stockMOL;
+      (t[f] = t[f]||{})[r.vendor] = (t[f]?.[r.vendor]||0) + r.qty;
+    });
+    const freqs = [...new Set([...Object.keys(install), ...Object.keys(stockAll)])].sort((a,b)=>a.localeCompare(b,'ru',{numeric:true}));
+    if (!freqs.length) return '<div class="empty">Нет данных по частоте</div>';
+
+    function simpleTable(title, obj, extraRow){
+      let h = `<h3>${title}</h3><div class="tblwrap"><table><thead><tr><th>Частота</th>${vendors.map(v=>`<th>${v}</th>`).join('')}<th>Итого</th></tr></thead><tbody>`;
+      const tot = {};
+      freqs.forEach(f=>{
+        const row = obj[f]||{};
+        let t=0; const cells = vendors.map(v=>{ const val=row[v]||0; t+=val; tot[v]=(tot[v]||0)+val; return `<td>${fmt(val)}</td>`; }).join('');
+        h += `<tr><td>${f}</td>${cells}<td><b>${fmt(t)}</b></td></tr>`;
+      });
+      const grand = vendors.reduce((s,v)=>s+(tot[v]||0),0);
+      h += `<tr><td><b>Итого</b></td>${vendors.map(v=>`<td><b>${fmt(tot[v]||0)}</b></td>`).join('')}<td><b>${fmt(grand)}</b></td></tr>`;
+      if (extraRow) h += extraRow(tot, grand);
+      h += `</tbody></table></div>`;
+      return {html:h, tot, grand};
+    }
+    function forecastTable(title, stockObj){
+      let h = `<h3>${title}</h3><div class="tblwrap"><table><thead><tr><th>Частота</th>${vendors.map(v=>`<th>${v}</th>`).join('')}<th>Итого</th></tr></thead><tbody>`;
+      const tot = {};
+      freqs.forEach(f=>{
+        const srow = stockObj[f]||{}, irow = install[f]||{};
+        let t=0; const cells = vendors.map(v=>{ const val=forecastCell(srow[v]||0, irow[v]||0); t+=val; tot[v]=(tot[v]||0)+val; return `<td>${fmt(val)}</td>`; }).join('');
+        h += `<tr><td>${f}</td>${cells}<td><b>${fmt(t)}</b></td></tr>`;
+      });
+      const grand = vendors.reduce((s,v)=>s+(tot[v]||0),0);
+      h += `<tr><td><b>Итого</b></td>${vendors.map(v=>`<td><b>${fmt(tot[v]||0)}</b></td>`).join('')}<td><b>${fmt(grand)}</b></td></tr></tbody></table></div>`;
+      return h;
+    }
+
+    const instT = simpleTable('Факт установлено (наряды «Расход»)', install, (tot,grand)=>
+      `<tr><td><b>Итого среднее за ${fullMonths} мес.</b></td>${vendors.map(v=>`<td>${fmt((tot[v]||0)/fullMonths)}</td>`).join('')}<td><b>${fmt(grand/fullMonths)}</b></td></tr>`);
+    const molT = simpleTable('Остаток — МОЛ', stockMOL);
+    const csT = simpleTable('Остаток — ЦС', stockCS);
+    const allT = simpleTable('Остаток — ЦС + МОЛ', stockAll);
+
+    return instT.html + molT.html + csT.html + allT.html +
+      forecastTable('Прогноз на конец года — с учётом МОЛ+ЦС', stockAll) +
+      forecastTable('Прогноз на конец года — только ЦС', stockCS);
+  }
+
+  box.innerHTML = `<h2 style="font-size:15px;margin:6px 0 10px">По РДТ / регионам</h2>${buildRegionSection()}`+
+                   `<h2 style="font-size:15px;margin:20px 0 10px">По частоте</h2>${buildFreqSection()}`;
+}
+
+// ══════════════════════════════════════════════════════════════
 // NAV
 // ══════════════════════════════════════════════════════════════
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>showPage(t.dataset.page)));
 function showPage(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.page===name));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+name));
+  if (name==='ontforecast') prefillOntMonths();
 }
 
 // init
