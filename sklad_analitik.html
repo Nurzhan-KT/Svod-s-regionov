@@ -191,7 +191,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
       <h3>Партии без вендора/частоты/цены (только для отслеживаемых материалов)</h3>
       <div class="tblwrap" id="unresolvedPartiyaBox"><div class="empty">—</div></div>
       <h3>Модели оборудования из нарядов без кода материала (файлы «Расход»)</h3>
-      <p class="hint">Наряды на установку не содержат код материала СКЛАДа — только название модели. Один раз укажите код материала (как в DRB/ODS/DTK) — свяжется навсегда.</p>
+      <p class="hint">Наряды на установку не содержат код материала СКЛАДа — только название модели, которое от файла к файлу пишется по-разному. Укажите код материала (как в DRB/ODS/DTK) в одной строке — он подставится во все строки с тем же вендором и частотой и запомнится за этим вендором+частотой навсегда: в будущих файлах «Расход» новые названия моделей того же вендора/частоты подтянут этот код автоматически, без повторного ввода.</p>
       <div class="tblwrap" id="unresolvedModelsBox"><div class="empty">—</div></div>
       <div class="row" style="margin-top:14px">
         <button class="btn btn-primary" onclick="applyReviewAndReclassify()">✅ Применить и пересчитать</button>
@@ -214,6 +214,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
             <option value="override">Ручные привязки склада/филиала → Регион</option>
             <option value="partiya">Партия → Вендор/Частота/Цена</option>
             <option value="model">Модель оборудования → Код материала</option>
+            <option value="vendormaterial">Вендор+Частота → Код материала</option>
             <option value="spp">СПП-элемент → Наименование СПП</option>
             <option value="ont">Отслеживаемые материалы (Вендор/Частота/Цена)</option>
           </select>
@@ -306,6 +307,7 @@ const COL_SPP = 'sklad_spp_names';
 const COL_SNAPSHOT = 'sklad_snapshots';
 const COL_CONFIG = 'sklad_config';
 const COL_MODEL = 'sklad_model_material';
+const COL_VENDOR_MATERIAL = 'sklad_vendor_material';
 
 // ══════════════════════════════════════════════════════════════
 // СТАРТОВЫЕ СЛОВАРИ — извлечены из реальных файлов DRB/ODS/DTK
@@ -425,6 +427,13 @@ const RASKHOD_STATUSES = new Set(['Наряд выполнен', 'Подведе
 function cleanText(s){ return String(s||'').replace(/^﻿/,'').trim(); }
 function normalizeVendorName(v){ const c = cleanText(v).toUpperCase(); return VENDOR_NORMALIZE[c] || cleanText(v); }
 function modelDocId(name){ return encodeURIComponent(cleanText(name)).slice(0,300) || '_empty'; }
+// Ключ словаря «код материала по вендору+частоте» — один и тот же физический
+// прибор в разных нарядах часто записан разным текстом модели (опечатки,
+// сокращения), но вендор+частота у него одни и те же. Код, один раз указанный
+// для вендора+частоты, переносится на ЛЮБЫЕ будущие названия моделей с тем же
+// вендором и частотой — без этого код приходилось бы вбивать заново при каждой
+// новой формулировке модели в новом файле «Расход».
+function vendorMaterialKey(vendor, freq){ return `${cleanText(vendor).toUpperCase()}||${cleanText(freq)}`; }
 
 // Определение типа по имени файла — используется только для мягкого предупреждения,
 // если файл, похоже, положили не в то окно (окно — основной источник истины для типа).
@@ -458,6 +467,7 @@ Object.entries(SEED_FILIAL_REGION).forEach(([f,r]) => { dictOverride['FILIAL_'+f
 let dictPartiya = {};         // partiya -> {vendor,freq,price}
 let dictSpp = {};             // sppCode -> name
 let dictModelMaterial = {};   // model name -> material code (для нарядов «Расход»)
+let dictVendorMaterial = {};  // "вендор||частота" -> material code (переносится на новые названия моделей того же вендора/частоты)
 let ontMaterials = new Set(SEED_ONT_MATERIALS);
 SEED_PARTIYA.forEach(p => dictPartiya[p.partiya] = {vendor:p.vendor, freq:p.freq, price:p.price});
 
@@ -514,12 +524,13 @@ async function loadDictionaries(){
   const statusEl = document.getElementById('syncStatus');
   statusEl.innerHTML = '<span class="spinner"></span>Синхронизация словарей…';
   try{
-    const [zSnap, oSnap, pSnap, sSnap, mSnap, cSnap] = await Promise.all([
+    const [zSnap, oSnap, pSnap, sSnap, mSnap, vSnap, cSnap] = await Promise.all([
       db.collection(COL_ZAVOD).get(),
       db.collection(COL_OVERRIDE).get(),
       db.collection(COL_PARTIYA).get(),
       db.collection(COL_SPP).get(),
       db.collection(COL_MODEL).get(),
+      db.collection(COL_VENDOR_MATERIAL).get(),
       db.collection(COL_CONFIG).doc('ont_materials').get()
     ]);
     zSnap.forEach(d => dictZavod[d.id] = d.data().region);
@@ -527,6 +538,7 @@ async function loadDictionaries(){
     pSnap.forEach(d => dictPartiya[d.id] = d.data());
     sSnap.forEach(d => dictSpp[d.id] = d.data().name);
     mSnap.forEach(d => dictModelMaterial[d.data().model_name || d.id] = d.data().material);
+    vSnap.forEach(d => dictVendorMaterial[d.id] = d.data().material);
     if (cSnap.exists && Array.isArray(cSnap.data().codes)) {
       ontMaterials = new Set(cSnap.data().codes);
     }
@@ -905,7 +917,9 @@ async function classifyAll(){
         const region = resolveRegionForFilial(r);
         const rdt = RDT_CODE_MAP[r.rdt_code] || (region ? ZONE_BY_REGION[region] : null) || null;
         const vendor = normalizeVendorName(r.vendor_raw);
-        const material = dictModelMaterial[r.model_name] || '';
+        // Сначала точное совпадение по названию модели, иначе — код, once назначенный
+        // для этого вендора+частоты (см. vendorMaterialKey) переносится на новое название.
+        const material = dictModelMaterial[r.model_name] || dictVendorMaterial[vendorMaterialKey(vendor, r.freq)] || '';
         if (!material){
           const k = r.model_name;
           if (!unresolvedModels[k]) unresolvedModels[k] = {model_name:k, vendor, freq:r.freq, count:0};
@@ -1128,6 +1142,12 @@ async function applyReviewAndReclassify(){
       const code = mEl.value.trim();
       dictModelMaterial[u.model_name] = code;
       writes.push(db.collection(COL_MODEL).doc(modelDocId(u.model_name)).set({model_name:u.model_name, material:code, updatedAt:new Date().toISOString()}));
+      // Сохраняем и на уровне вендор+частота — тогда код применится и к новым
+      // названиям моделей того же вендора/частоты, которые встретятся в будущих
+      // файлах «Расход», без повторного ввода вручную.
+      const vk = vendorMaterialKey(u.vendor, u.freq);
+      dictVendorMaterial[vk] = code;
+      writes.push(db.collection(COL_VENDOR_MATERIAL).doc(modelDocId(vk)).set({vendor:u.vendor||'', freq:u.freq||'', material:code, updatedAt:new Date().toISOString()}));
     }
   });
   if (writes.length){
@@ -1159,6 +1179,9 @@ function renderDict(){
   } else if (sel==='model'){
     const entries = Object.entries(dictModelMaterial).sort();
     box.innerHTML = entries.length ? `<table><thead><tr><th>Модель оборудования</th><th>Код материала</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — появится после первой обработки файла «Расход»</div>';
+  } else if (sel==='vendormaterial'){
+    const entries = Object.entries(dictVendorMaterial).sort();
+    box.innerHTML = entries.length ? `<table><thead><tr><th>Вендор</th><th>Частота</th><th>Код материала</th></tr></thead><tbody>${entries.map(([k,v])=>{ const [vd,fr] = k.split('||'); return `<tr><td>${vd}</td><td>${fr}</td><td>${v}</td></tr>`; }).join('')}</tbody></table><div class="hint" style="padding:8px">Код, назначенный вендору+частоте здесь, применяется ко всем моделям с таким вендором и частотой — даже к новым названиям, которые встретятся в будущих файлах «Расход».</div>` : '<div class="empty">Словарь пуст — заполните код материала в разделе «Проверка» и сохраните</div>';
   } else if (sel==='spp'){
     const entries = Object.entries(dictSpp);
     box.innerHTML = entries.length ? `<table><thead><tr><th>СПП-элемент</th><th>Название</th></tr></thead><tbody>${entries.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Словарь пуст — названия СПП вводятся вручную аналитиком в обогащённой выгрузке</div>';
