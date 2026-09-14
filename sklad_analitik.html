@@ -1525,16 +1525,34 @@ function flattenColTree(node, path, depth, totalLevels, out, headerMatrix, xRef)
   });
 }
 
+// Считает, сколько РАЗНЫХ значений даёт каждое выбранное поле на текущих данных —
+// используется, чтобы в отказе pivotSizeGuard назвать КОНКРЕТНОЕ поле-виновника
+// (у каждой загрузки оно своё: то «Склад», то «Материал», то «Программа»), а не
+// один и тот же статичный текст независимо от того, что реально отмечено.
+function fieldCardinalities(srcRows, fields, sideLabel){
+  return fields.map(f=>{
+    const set = new Set();
+    srcRows.forEach(r=>set.add(r[f]||'(не указано)'));
+    return {label: PIVOT_FIELD_DEFS.find(d=>d.key===f).label, count:set.size, side:sideLabel};
+  });
+}
 // Возвращает HTML-сообщение об отказе, если строк/столбцов/ячеек слишком много для
 // безопасной отрисовки в браузере, иначе null. Пороги подобраны с запасом — обычная
-// читаемая сводная таблица никогда столько не требует; если предел достигнут, почти
-// наверняка отмечено слишком много полей сразу (особенно «Материал»/«Программа» —
-// у них может быть много тысяч разных значений).
+// читаемая сводная таблица никогда столько не требует. srcRows/rowFields/colFields —
+// опциональны, нужны только чтобы назвать конкретное поле-виновника в сообщении.
 const PIVOT_MAX_ROWS = 3000, PIVOT_MAX_COLS = 300, PIVOT_MAX_CELLS = 150000;
-function pivotSizeGuard(rowCount, colCount){
+function pivotSizeGuard(rowCount, colCount, srcRows, rowFields, colFields){
   if (rowCount > PIVOT_MAX_ROWS || colCount > PIVOT_MAX_COLS || rowCount*colCount > PIVOT_MAX_CELLS){
+    let hint = 'Выберите меньше полей или сузьте фильтр «Тип данных»/«Источник».';
+    if (srcRows && ((rowFields&&rowFields.length) || (colFields&&colFields.length))){
+      const stats = [...fieldCardinalities(srcRows, rowFields||[], 'Строки'), ...fieldCardinalities(srcRows, colFields||[], 'Столбцы')]
+        .filter(x=>x.count>1).sort((a,b)=>b.count-a.count).slice(0,3);
+      if (stats.length){
+        hint = `Больше всего разных значений дают поля: ${stats.map(x=>`«${x.label}» в «${x.side}» (${x.count.toLocaleString('ru-RU')} знач.)`).join(', ')} — их сочетание и даёт такое число ${colCount>PIVOT_MAX_COLS?'столбцов':'строк'}. Уберите одно из них (обычно достаточно оставить Вендор+Частоту в столбцах, а Склад — только в строках) или сузьте фильтр «Тип данных»/«Источник».`;
+      }
+    }
     return `<div class="empty">⚠️ Слишком большая таблица для отображения: ${rowCount.toLocaleString('ru-RU')} строк × ${colCount.toLocaleString('ru-RU')} столбцов.<br>
-      Выберите меньше полей (особенно «Материал» и «Программа» — у них может быть много тысяч разных значений) или сузьте фильтр «Тип данных».</div>`;
+      ${hint}</div>`;
   }
   return null;
 }
@@ -1589,7 +1607,7 @@ function renderNestedPivot(srcRows, rowFields, colFields, valField, aggMode){
   // строк/столбцов может получиться десятки тысяч × десятки тысяч — миллионы ячеек
   // HTML-таблицы, что реально вешает вкладку. Вместо попытки отрисовать — отказ с
   // понятным сообщением.
-  const guardMsg = pivotSizeGuard(rowList.length, colList.length);
+  const guardMsg = pivotSizeGuard(rowList.length, colList.length, srcRows, rowFields, colFields);
   if (guardMsg){ document.getElementById('pivotBox').innerHTML = guardMsg; window._lastPivot = null; return; }
 
   let html = '<table><thead>';
@@ -1637,7 +1655,7 @@ function renderFlatMultiValuePivot(srcRows, rowFields, colFields, valFields, agg
   const flatCols = [];
   cArr.forEach(ck=>valFields.forEach(vf=>flatCols.push({ck,vf})));
 
-  const guardMsg = pivotSizeGuard(rArr.length, flatCols.length);
+  const guardMsg = pivotSizeGuard(rArr.length, flatCols.length, srcRows, rowFields, colFields);
   if (guardMsg){ document.getElementById('pivotBox').innerHTML = guardMsg; window._lastPivot = null; return; }
 
   let html = '<table><thead><tr><th>'+rowLabel+'</th>';
