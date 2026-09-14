@@ -1036,6 +1036,16 @@ document.getElementById('btnProcess').addEventListener('click', async ()=>{
 // ══════════════════════════════════════════════════════════════
 // REVIEW PAGE
 // ══════════════════════════════════════════════════════════════
+// Одна и та же сортировка используется и при отрисовке списка, и при его применении
+// (applyReviewAndReclassify) — иначе поля ввода mm_0, mm_1… привяжутся не к тем моделям.
+function getSortedUnresolvedModels(){
+  return Object.values(unresolvedModels).sort((a,b)=>{
+    const v = (a.vendor||'').localeCompare(b.vendor||'', 'ru');
+    if (v) return v;
+    return (a.freq||'').localeCompare(b.freq||'', 'ru', {numeric:true});
+  });
+}
+
 function renderReviewTables(){
   const rBox = document.getElementById('unresolvedRegionsBox');
   const list1 = Object.values(unresolvedRegions);
@@ -1069,7 +1079,7 @@ function renderReviewTables(){
   }
 
   const mBox = document.getElementById('unresolvedModelsBox');
-  const list3 = Object.values(unresolvedModels);
+  const list3 = getSortedUnresolvedModels();
   if (!list3.length){
     mBox.innerHTML = '<div class="empty">✅ Все модели из нарядов связаны с кодом материала</div>';
   } else {
@@ -1111,7 +1121,7 @@ async function applyReviewAndReclassify(){
       writes.push(db.collection(COL_PARTIYA).doc(u.partiya).set(data));
     }
   });
-  const list3 = Object.values(unresolvedModels);
+  const list3 = getSortedUnresolvedModels();
   list3.forEach((u,i)=>{
     const mEl = document.getElementById(`mm_${i}`);
     if (mEl && mEl.value.trim()){
