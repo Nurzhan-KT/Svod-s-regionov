@@ -1074,6 +1074,8 @@ document.getElementById('btnProcess').addEventListener('click', async ()=>{
     populateForecastMaterials();
     populatePivotSources();
     applyPivotPreset('region'); // сразу готовый отчёт на вкладке «Сводные таблицы», без ручной настройки
+    prefillOntMonths(); buildOntForecast(); // и на вкладке «Прогноз ONT (год)» — без нажатия кнопки
+    await buildForecast(); // и на вкладке «Прогноз» — по первому материалу из списка (если снимков накоплено достаточно)
     logDiag('✅ Обработка завершена успешно.');
     toast('Обработка завершена');
   }catch(e){
@@ -1200,10 +1202,12 @@ async function applyReviewAndReclassify(){
   renderReviewTables();
   renderDict();
   populatePivotSources();
-  // Обновляем уже открытый отчёт (готовый или донастроенный вручную) свежими данными —
-  // сбрасывать выбор аналитика на дефолтный пресет здесь не нужно, в отличие от самой
-  // первой обработки файлов (см. btnProcess), где сводная таблица ещё вообще не строилась.
+  // Обновляем уже открытые отчёты (готовые или донастроенные вручную) свежими данными —
+  // сбрасывать выбор аналитика на дефолтные настройки здесь не нужно, в отличие от самой
+  // первой обработки файлов (см. btnProcess), где отчёты ещё вообще не строились.
   if (getCheckedValues('pvRowFields').length) buildPivot();
+  prefillOntMonths(); buildOntForecast();
+  if (document.getElementById('fcMaterial').value) await buildForecast();
 }
 
 function renderDict(){
