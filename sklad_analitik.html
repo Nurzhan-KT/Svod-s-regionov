@@ -237,6 +237,11 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
             <option value="">Все вместе (не рекомендуется смешивать)</option>
           </select>
         </div>
+        <div class="field"><label>Источник</label>
+          <select id="pvSource">
+            <option value="">Все источники</option>
+          </select>
+        </div>
         <div class="field">
           <label>Строки (можно несколько)</label>
           <div class="checklist" id="pvRowFields"></div>
@@ -428,6 +433,16 @@ function guessReportType(name){
   if (/расход|списан|выбыт|выдач/.test(n)) return 'raskhod';
   if (/приход|поступ|получен/.test(n)) return 'postuplenie';
   return 'nalichie';
+}
+
+// Группа-источник по имени файла (DRB/ODS/DTK) — нужна, чтобы в сводных таблицах можно
+// было смотреть данные только по одному отчёту, не смешивая их между собой.
+function guessSourceGroup(name){
+  const n = name.toLowerCase();
+  if (/\bdrb\b|дрб/.test(n)) return 'DRB';
+  if (/\bods\b|одс/.test(n)) return 'ODS';
+  if (/\bdtk\b|дтк/.test(n)) return 'DTK';
+  return null; // прочее (например, файлы нарядов «Расход») — показываются как есть, по имени файла
 }
 
 // Партия → {vendor,freq,price} — накоплено из истории DRB/ODS/DTK (89 партий).
@@ -902,7 +917,7 @@ async function classifyAll(){
           unresolvedRegions[k].count++;
         }
         rows.push({
-          source: f.label, date: r.date || extractDateFromName(f.name), report_type: 'raskhod',
+          source: f.label, source_group: guessSourceGroup(f.name) || f.label, date: r.date || extractDateFromName(f.name), report_type: 'raskhod',
           sklad_name: r.filial || r.oblast, sklad_code: '', zavod: '',
           material, material_name: r.model_name,
           tip: '', region, rdt, vendor, freq: r.freq, price: '', unit: 'ШТ',
@@ -942,7 +957,7 @@ async function classifyAll(){
       }
 
       rows.push({
-        source: f.label, date, report_type: f.type || 'nalichie',
+        source: f.label, source_group: guessSourceGroup(f.name) || f.label, date, report_type: f.type || 'nalichie',
         sklad_name: r.wh_name, sklad_code: r.wh_code, zavod: r.zavod,
         material: r.material, material_name: r.material_name,
         tip, region, rdt, vendor, freq, price, unit: r.unit,
@@ -996,6 +1011,7 @@ document.getElementById('btnProcess').addEventListener('click', async ()=>{
     renderReviewTables();
     renderDict();
     populateForecastMaterials();
+    populatePivotSources();
     logDiag('✅ Обработка завершена успешно.');
     toast('Обработка завершена');
   }catch(e){
@@ -1105,6 +1121,7 @@ async function applyReviewAndReclassify(){
   renderStats();
   renderReviewTables();
   renderDict();
+  populatePivotSources();
 }
 
 function renderDict(){
@@ -1336,9 +1353,21 @@ function initPivotUI(){
 }
 function fmtNum(n){ return Number(n).toLocaleString('ru-RU', {maximumFractionDigits:2}); }
 
+// Заполняет список «Источник» в сводных таблицах реально загруженными источниками
+// (DRB/ODS/DTK по имени файла, либо имя файла как есть — например, для нарядов).
+function populatePivotSources(){
+  const sel = document.getElementById('pvSource');
+  if (!sel) return;
+  const prev = sel.value;
+  const groups = [...new Set(rows.map(r=>r.source_group).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Все источники</option>' + groups.map(g=>`<option value="${g}">${g}</option>`).join('');
+  if (groups.includes(prev)) sel.value = prev;
+}
+
 function buildPivot(){
   if (!rows.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Сначала обработайте файлы на вкладке «Загрузка»</div>'; return; }
   const typeFilter = document.getElementById('pvType').value;
+  const sourceFilter = document.getElementById('pvSource').value;
   const rowFields = getCheckedValues('pvRowFields');
   const colFields = getCheckedValues('pvColFields');
   const valFields = getCheckedValues('pvValFields');
@@ -1347,8 +1376,9 @@ function buildPivot(){
   if (!rowFields.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Выберите хотя бы одно поле в «Строки»</div>'; return; }
   if (!valFields.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Выберите хотя бы одно поле в «Значение»</div>'; return; }
 
-  const srcRows = typeFilter ? rows.filter(r=>r.report_type===typeFilter) : rows;
-  if (!srcRows.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Нет строк с выбранным типом данных в текущей загрузке</div>'; return; }
+  let srcRows = typeFilter ? rows.filter(r=>r.report_type===typeFilter) : rows;
+  if (sourceFilter) srcRows = srcRows.filter(r=>r.source_group===sourceFilter);
+  if (!srcRows.length){ document.getElementById('pivotBox').innerHTML = '<div class="empty">Нет строк с выбранными фильтрами в текущей загрузке</div>'; return; }
 
   if (valFields.length===1){
     renderNestedPivot(srcRows, rowFields, colFields, valFields[0], aggMode);
