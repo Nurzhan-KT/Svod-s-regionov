@@ -230,6 +230,12 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
     <div class="card">
       <h2>📋 Сводная таблица</h2>
       <p class="hint">Строится по строкам, обработанным на вкладке «Загрузка» (текущая загрузка в памяти браузера). Для строк/столбцов/значений можно отметить <b>несколько</b> полей — они объединятся через «/» в порядке, в котором перечислены в списке.</p>
+      <p class="hint">Ниже — готовые отчёты, как на листе 2 стандартной выгрузки ДРБ (Тип склада → Регион/Программа/РДТ, по вендору и частоте). После загрузки файлов первый строится автоматически; остальные — по клику. Поля ниже (Строки/Столбцы/Значение) при этом остаются доступны — можно донастроить любой из них и нажать «Построить» заново.</p>
+      <div class="row" style="margin-bottom:6px">
+        <button class="btn btn-outline btn-sm" onclick="applyPivotPreset('region')">📍 Остаток по регионам</button>
+        <button class="btn btn-outline btn-sm" onclick="applyPivotPreset('spp')">🏷️ Остаток по программам (СПП)</button>
+        <button class="btn btn-outline btn-sm" onclick="applyPivotPreset('zone')">🗺️ Остаток по РДТ/зонам</button>
+      </div>
       <div class="row" style="align-items:start">
         <div class="field"><label>Тип данных</label>
           <select id="pvType">
@@ -1058,6 +1064,7 @@ document.getElementById('btnProcess').addEventListener('click', async ()=>{
     renderDict();
     populateForecastMaterials();
     populatePivotSources();
+    applyPivotPreset('region'); // сразу готовый отчёт на вкладке «Сводные таблицы», без ручной настройки
     logDiag('✅ Обработка завершена успешно.');
     toast('Обработка завершена');
   }catch(e){
@@ -1184,6 +1191,10 @@ async function applyReviewAndReclassify(){
   renderReviewTables();
   renderDict();
   populatePivotSources();
+  // Обновляем уже открытый отчёт (готовый или донастроенный вручную) свежими данными —
+  // сбрасывать выбор аналитика на дефолтный пресет здесь не нужно, в отличие от самой
+  // первой обработки файлов (см. btnProcess), где сводная таблица ещё вообще не строилась.
+  if (getCheckedValues('pvRowFields').length) buildPivot();
 }
 
 function renderDict(){
@@ -1436,6 +1447,16 @@ function getCheckedValues(boxId){
   inputs.sort((a,b)=>(Number(a.dataset.order)||0)-(Number(b.dataset.order)||0));
   return inputs.map(i=>i.value);
 }
+// Отмечает ИМЕННО поля из keys (в указанном порядке), снимает остальные — используется
+// готовыми отчётами (applyPivotPreset), чтобы не заставлять аналитика каждый раз
+// вручную тыкать одни и те же галочки.
+function setCheckedValues(boxId, keys){
+  document.querySelectorAll('#'+boxId+' input').forEach(inp=>{
+    const idx = keys.indexOf(inp.value);
+    inp.checked = idx>=0;
+    if (idx>=0) inp.dataset.order = idx; else delete inp.dataset.order;
+  });
+}
 function initPivotUI(){
   renderChecklist('pvRowFields', PIVOT_FIELD_DEFS, ['region']);
   renderChecklist('pvColFields', PIVOT_FIELD_DEFS, []);
@@ -1452,6 +1473,28 @@ function populatePivotSources(){
   const groups = [...new Set(rows.map(r=>r.source_group).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">Все источники</option>' + groups.map(g=>`<option value="${g}">${g}</option>`).join('');
   if (groups.includes(prev)) sel.value = prev;
+}
+
+// Готовые отчёты — воспроизводят 3 сводные таблицы с листа 2 стандартной выгрузки
+// ДРБ («Сумма по полю СвобИспользЗапас»: Тип склада → Регион / Программа(СПП) / РДТ-зона,
+// столбцы — Вендор → Частота). Строятся сразу после обработки файлов (см. btnProcess и
+// applyReviewAndReclassify), чтобы не заставлять аналитика каждый раз настраивать одно
+// и то же вручную — при этом поля Строки/Столбцы/Значение остаются обычными чек-листами,
+// их можно донастроить и нажать «Построить» заново.
+const PIVOT_PRESETS = {
+  region: {rowFields:['tip','region'], colFields:['vendor','freq']},
+  spp:    {rowFields:['tip','spp_name'], colFields:['vendor','freq']},
+  zone:   {rowFields:['tip','rdt'], colFields:['vendor','freq']}
+};
+function applyPivotPreset(kind){
+  const p = PIVOT_PRESETS[kind];
+  if (!p || !rows.length) return;
+  document.getElementById('pvType').value = 'nalichie';
+  document.getElementById('pvAgg').value = 'sum';
+  setCheckedValues('pvRowFields', p.rowFields);
+  setCheckedValues('pvColFields', p.colFields);
+  setCheckedValues('pvValFields', ['qty']);
+  buildPivot();
 }
 
 function buildPivot(){
