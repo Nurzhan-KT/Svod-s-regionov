@@ -303,6 +303,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue2)}
           <input type="number" id="ontRemainMonths" min="0" max="12" step="1">
         </div>
         <button class="btn btn-primary" onclick="buildOntForecast()">Построить прогноз ONT</button>
+        <button class="btn btn-green" onclick="exportOntForecast()">📥 Экспорт в Excel</button>
       </div>
       <div id="ontForecastInfo" class="hint" style="margin-top:10px"></div>
       <div id="ontForecastBox" style="margin-top:16px"><div class="empty">—</div></div>
@@ -1825,6 +1826,87 @@ async function exportPivot(){
   await downloadWorkbook(wb, `Сводная_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+// Пишет одну «спеку» (см. ontSpecToHtml/buildOntForecast) в лист Excel начиная со строки
+// startRow: заголовок таблицы, 1-2 строки шапки (с объединением ячеек для групп вендоров —
+// как в исходном ручном отчёте), строки данных, строка «Итого» и доп. строки (например,
+// «среднее за N мес.») — жирным с заливкой. Возвращает номер следующей свободной строки.
+function writeOntSpecToSheet(ws, spec, startRow){
+  const {title, rowLabelHeaders, groups, rows:dataRows, totalsRow, extraRows} = spec;
+  const nLbl = rowLabelHeaders.length;
+  const totalCols = nLbl + groups.reduce((s,g)=>s+g.vendors.length+1, 0);
+  let r = startRow;
+  ws.getCell(r,1).value = title;
+  ws.getCell(r,1).font = {bold:true, size:12};
+  if (totalCols>1) ws.mergeCells(r,1,r,totalCols);
+  r++;
+  if (!dataRows.length){
+    ws.getCell(r,1).value = 'Нет данных';
+    return r+2;
+  }
+  const headerStart = r;
+  const hasGroupTitles = groups.some(g=>g.label);
+  if (hasGroupTitles){
+    rowLabelHeaders.forEach((h,i)=>{ ws.getCell(r,i+1).value = h; ws.mergeCells(r,i+1,r+1,i+1); });
+    let c = nLbl+1;
+    groups.forEach(g=>{ ws.getCell(r,c).value = g.label; ws.mergeCells(r,c,r,c+g.vendors.length); c += g.vendors.length+1; });
+    r++;
+    c = nLbl+1;
+    groups.forEach(g=>{ g.vendors.forEach(v=>{ ws.getCell(r,c).value=v; c++; }); ws.getCell(r,c).value = 'Итого'; c++; });
+  } else {
+    rowLabelHeaders.forEach((h,i)=> ws.getCell(r,i+1).value = h);
+    let c = nLbl+1;
+    groups.forEach(g=>{ g.vendors.forEach(v=>{ ws.getCell(r,c).value=v; c++; }); ws.getCell(r,c).value = 'Итого'; c++; });
+  }
+  for (let rr=headerStart; rr<=r; rr++) styleHeaderRow(ws.getRow(rr));
+  r++;
+  const writeRow = (labels, blocks, bold) => {
+    if (bold){
+      ws.getCell(r,1).value = labels[0];
+      if (nLbl>1) ws.mergeCells(r,1,r,nLbl);
+    } else {
+      labels.forEach((l,i)=> ws.getCell(r,i+1).value = l);
+    }
+    let c = nLbl+1;
+    groups.forEach((g,gi)=>{
+      g.vendors.forEach((v,vi)=>{ const val=blocks[gi][vi]; const cell=ws.getCell(r,c); cell.value=val?val:null; cell.numFmt='#,##0.##'; c++; });
+      const tv = blocks[gi][g.vendors.length];
+      const cell = ws.getCell(r,c); cell.value = tv?tv:null; cell.numFmt='#,##0.##'; cell.font={bold:true}; c++;
+    });
+    if (bold) ws.getRow(r).eachCell({includeEmpty:true}, cc=>{ cc.font={bold:true}; cc.fill=XLS_SUB0_FILL; });
+    r++;
+  };
+  dataRows.forEach(dr=> writeRow(dr.labels, dr.blocks, false));
+  writeRow(totalsRow.labels, totalsRow.blocks, true);
+  (extraRows||[]).forEach(er=> writeRow(er.labels, er.blocks, true));
+  for (let rr=headerStart; rr<r; rr++) for (let cc=1; cc<=totalCols; cc++) ws.getCell(rr,cc).border = XLS_BORDER;
+  return r+1; // + строка-разделитель перед следующей таблицей
+}
+
+async function exportOntForecast(){
+  const data = window._lastOntForecast;
+  if (!data){ toast('Сначала постройте прогноз ONT'); return; }
+  const wb = new ExcelJS.Workbook();
+
+  const ws1 = wb.addWorksheet('По РДТ и регионам');
+  let r = 1;
+  data.regionTables.forEach(spec=>{ r = writeOntSpecToSheet(ws1, spec, r); r++; });
+  ws1.getColumn(1).width = 14; ws1.getColumn(2).width = 24;
+  for (let c=3;c<=30;c++) ws1.getColumn(c).width = 12;
+  ws1.views = [{state:'frozen', xSplit:2}];
+
+  const ws2 = wb.addWorksheet('По частоте');
+  r = 1;
+  if (data.freqTables){
+    data.freqTables.forEach(spec=>{ r = writeOntSpecToSheet(ws2, spec, r); r++; });
+  } else {
+    ws2.getCell(1,1).value = 'Нет данных по частоте';
+  }
+  ws2.getColumn(1).width = 16;
+  for (let c=2;c<=20;c++) ws2.getColumn(c).width = 12;
+
+  await downloadWorkbook(wb, `Прогноз_ONT_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 // ══════════════════════════════════════════════════════════════
 // FORECAST
 // ══════════════════════════════════════════════════════════════
@@ -1940,9 +2022,45 @@ document.getElementById('ontFullMonths')?.addEventListener('input', ()=>{
   document.getElementById('ontRemainMonths').value = Math.max(0, 12-f);
 });
 
+// Каждая под-таблица строится один раз как «спека» (заголовки блоков, вендоры, строки,
+// итоги) — из неё рендерится и HTML (для экрана), и лист Excel (exportOntForecast),
+// вместо того чтобы парсить обратно уже готовый HTML или дублировать расчёт дважды.
+function ontRowCells(labels, blocks, groups, rowLabelHeaders, bold){
+  const fmt = v => v?fmtNum(v):'';
+  let out = bold
+    ? `<td colspan="${rowLabelHeaders.length}"><b>${labels[0]}</b></td>`
+    : labels.map(l=>`<td>${l}</td>`).join('');
+  out += groups.map((g,gi)=> g.vendors.map((v,vi)=>{
+    const val = fmt(blocks[gi][vi]);
+    return `<td>${bold?`<b>${val}</b>`:val}</td>`;
+  }).join('') + `<td><b>${fmt(blocks[gi][g.vendors.length])}</b></td>`).join('');
+  return out;
+}
+function ontSpecToHtml(spec){
+  const {title, rowLabelHeaders, groups, rows:dataRows, totalsRow, extraRows} = spec;
+  if (!dataRows.length) return `<h3>${title}</h3><div class="empty">Нет данных</div>`;
+  const hasGroupTitles = groups.some(g=>g.label);
+  let html = `<h3>${title}</h3><div class="tblwrap"><table><thead>`;
+  if (hasGroupTitles){
+    html += '<tr>' + rowLabelHeaders.map(h=>`<th rowspan="2">${h}</th>`).join('') +
+      groups.map(g=>`<th colspan="${g.vendors.length+1}">${g.label}</th>`).join('') + '</tr>';
+    html += '<tr>' + groups.map(g=>g.vendors.map(v=>`<th>${v}</th>`).join('')+'<th>Итого</th>').join('') + '</tr>';
+  } else {
+    html += '<tr>' + rowLabelHeaders.map(h=>`<th>${h}</th>`).join('') +
+      groups.map(g=>g.vendors.map(v=>`<th>${v}</th>`).join('')+'<th>Итого</th>').join('') + '</tr>';
+  }
+  html += '</thead><tbody>';
+  dataRows.forEach(r=> html += `<tr>${ontRowCells(r.labels, r.blocks, groups, rowLabelHeaders, false)}</tr>`);
+  html += `<tr>${ontRowCells(totalsRow.labels, totalsRow.blocks, groups, rowLabelHeaders, true)}</tr>`;
+  (extraRows||[]).forEach(r=> html += `<tr>${ontRowCells(r.labels, r.blocks, groups, rowLabelHeaders, true)}</tr>`);
+  html += '</tbody></table></div>';
+  return html;
+}
+
 function buildOntForecast(){
   const box = document.getElementById('ontForecastBox');
   const infoBox = document.getElementById('ontForecastInfo');
+  window._lastOntForecast = null;
   if (!rows.length){ box.innerHTML = '<div class="empty">Сначала обработайте файлы на вкладке «Загрузка»</div>'; return; }
 
   const fullMonths = Math.max(1, Number(document.getElementById('ontFullMonths').value)||1);
@@ -1971,11 +2089,11 @@ function buildOntForecast(){
   }
   infoBox.innerHTML = info;
 
-  const fmt = v => v?fmtNum(v):'';
   const forecastCell = (stock, install) => stock - (install/fullMonths*remainMonths) + 0.1;
+  const withTotal = arr => [...arr, arr.reduce((a,b)=>a+b,0)];
 
   // ================= ПО РДТ / РЕГИОНАМ =================
-  function buildRegionSection(){
+  function buildRegionTable(title, csOnly){
     const rowMeta = new Map(); // key -> {rdt, region}
     function keyOf(r){
       const rdt = r.rdt || '—', region = r.region || '—';
@@ -1983,115 +2101,88 @@ function buildOntForecast(){
       if (!rowMeta.has(k)) rowMeta.set(k, {rdt, region});
       return k;
     }
-    function aggregate(csOnly){
-      const install = {}, stock = {};
-      installRows.forEach(r=>{
-        if (!r.rdt && !r.region) return;
-        const k = keyOf(r);
-        (install[k] = install[k]||{})[r.vendor] = (install[k]?.[r.vendor]||0) + r.qty;
-      });
-      stockRows.forEach(r=>{
-        if (csOnly && r.tip!=='ЦС') return;
-        if (!r.rdt && !r.region) return;
-        const k = keyOf(r);
-        (stock[k] = stock[k]||{})[r.vendor] = (stock[k]?.[r.vendor]||0) + r.qty;
-      });
-      return {install, stock};
-    }
-    function renderTable(title, csOnly){
-      const {install, stock} = aggregate(csOnly);
-      const keys = [...new Set([...Object.keys(install), ...Object.keys(stock)])];
-      if (!keys.length) return `<h3>${title}</h3><div class="empty">Нет данных</div>`;
-      const rowsInfo = keys.map(k=>({...rowMeta.get(k), k}))
-        .sort((a,b)=> a.rdt.localeCompare(b.rdt,'ru') || a.region.localeCompare(b.region,'ru'));
+    const install = {}, stock = {};
+    installRows.forEach(r=>{
+      if (!r.rdt && !r.region) return;
+      const k = keyOf(r);
+      (install[k] = install[k]||{})[r.vendor] = (install[k]?.[r.vendor]||0) + r.qty;
+    });
+    stockRows.forEach(r=>{
+      if (csOnly && r.tip!=='ЦС') return;
+      if (!r.rdt && !r.region) return;
+      const k = keyOf(r);
+      (stock[k] = stock[k]||{})[r.vendor] = (stock[k]?.[r.vendor]||0) + r.qty;
+    });
+    const keys = [...new Set([...Object.keys(install), ...Object.keys(stock)])];
+    const rowsInfo = keys.map(k=>({...rowMeta.get(k), k}))
+      .sort((a,b)=> a.rdt.localeCompare(b.rdt,'ru') || a.region.localeCompare(b.region,'ru'));
 
-      let html = `<h3>${title}</h3><div class="tblwrap"><table><thead>`;
-      html += `<tr><th rowspan="2">РДТ</th><th rowspan="2">Регион</th><th colspan="${vendors.length+1}">Установлено факт</th><th colspan="${vendors.length+1}">Остаток</th><th colspan="${vendors.length+1}">Прогноз на конец года</th></tr>`;
-      const vhdr = vendors.map(v=>`<th>${v}</th>`).join('')+'<th>Итого</th>';
-      html += `<tr>${vhdr}${vhdr}${vhdr}</tr></thead><tbody>`;
-
-      const totInst={}, totStk={}, totFc={};
-      let instGrand=0, stkGrand=0, fcGrand=0;
-      rowsInfo.forEach(({rdt,region,k})=>{
-        const iv = install[k]||{}, sv = stock[k]||{};
-        let ri=0, rs=0, rf=0;
-        const iCells=[], sCells=[], fCells=[];
-        vendors.forEach(v=>{
-          const i=iv[v]||0, s=sv[v]||0, f=forecastCell(s,i);
-          ri+=i; rs+=s; rf+=f;
-          totInst[v]=(totInst[v]||0)+i; totStk[v]=(totStk[v]||0)+s; totFc[v]=(totFc[v]||0)+f;
-          iCells.push(`<td>${fmt(i)}</td>`); sCells.push(`<td>${fmt(s)}</td>`); fCells.push(`<td>${fmt(f)}</td>`);
-        });
-        instGrand+=ri; stkGrand+=rs; fcGrand+=rf;
-        html += `<tr><td>${rdt}</td><td>${region}</td>${iCells.join('')}<td><b>${fmt(ri)}</b></td>${sCells.join('')}<td><b>${fmt(rs)}</b></td>${fCells.join('')}<td><b>${fmt(rf)}</b></td></tr>`;
-      });
-      html += `<tr><td colspan="2"><b>Итого</b></td>`;
-      vendors.forEach(v=>html+=`<td><b>${fmt(totInst[v]||0)}</b></td>`); html+=`<td><b>${fmt(instGrand)}</b></td>`;
-      vendors.forEach(v=>html+=`<td><b>${fmt(totStk[v]||0)}</b></td>`); html+=`<td><b>${fmt(stkGrand)}</b></td>`;
-      vendors.forEach(v=>html+=`<td><b>${fmt(totFc[v]||0)}</b></td>`); html+=`<td><b>${fmt(fcGrand)}</b></td>`;
-      html += `</tr></tbody></table></div>`;
-      return html;
-    }
-    return renderTable('МОЛ + ЦС', false) + renderTable('Только ЦС', true);
+    const groups = [{label:'Установлено факт', vendors}, {label:'Остаток', vendors}, {label:'Прогноз на конец года', vendors}];
+    const totInst=vendors.map(()=>0), totStk=vendors.map(()=>0), totFc=vendors.map(()=>0);
+    const dataRows = rowsInfo.map(({rdt,region,k})=>{
+      const iv = install[k]||{}, sv = stock[k]||{};
+      const iArr = vendors.map(v=>iv[v]||0), sArr = vendors.map(v=>sv[v]||0), fArr = vendors.map((v,vi)=>forecastCell(sArr[vi], iArr[vi]));
+      iArr.forEach((v,i)=>totInst[i]+=v); sArr.forEach((v,i)=>totStk[i]+=v); fArr.forEach((v,i)=>totFc[i]+=v);
+      return {labels:[rdt,region], blocks:[withTotal(iArr), withTotal(sArr), withTotal(fArr)]};
+    });
+    const totalsRow = {labels:['Итого'], blocks:[withTotal(totInst), withTotal(totStk), withTotal(totFc)]};
+    return {title, rowLabelHeaders:['РДТ','Регион'], groups, rows:dataRows, totalsRow, extraRows:[]};
   }
 
   // ================= ПО ЧАСТОТЕ =================
-  function buildFreqSection(){
-    const install = {};
-    installRows.forEach(r=>{
-      const f = r.freq || '—';
-      (install[f] = install[f]||{})[r.vendor] = (install[f]?.[r.vendor]||0) + r.qty;
+  function buildFreqTable(title, obj, freqs, extraLabel){
+    const tot = vendors.map(()=>0);
+    const dataRows = freqs.map(f=>{
+      const row = obj[f]||{};
+      const arr = vendors.map(v=>row[v]||0);
+      arr.forEach((v,i)=>tot[i]+=v);
+      return {labels:[f], blocks:[withTotal(arr)]};
     });
-    const stockAll={}, stockCS={}, stockMOL={};
-    stockRows.forEach(r=>{
-      const f = r.freq || '—';
-      (stockAll[f] = stockAll[f]||{})[r.vendor] = (stockAll[f]?.[r.vendor]||0) + r.qty;
-      const t = r.tip==='ЦС' ? stockCS : stockMOL;
-      (t[f] = t[f]||{})[r.vendor] = (t[f]?.[r.vendor]||0) + r.qty;
+    const totalsRow = {labels:['Итого'], blocks:[withTotal(tot)]};
+    const extraRows = extraLabel ? [{labels:[extraLabel], blocks:[withTotal(tot.map(v=>v/fullMonths))]}] : [];
+    return {title, rowLabelHeaders:['Частота'], groups:[{label:null, vendors}], rows:dataRows, totalsRow, extraRows};
+  }
+  function buildFreqForecastTable(title, stockObj, installObj, freqs){
+    const tot = vendors.map(()=>0);
+    const dataRows = freqs.map(f=>{
+      const srow = stockObj[f]||{}, irow = installObj[f]||{};
+      const arr = vendors.map((v,vi)=>forecastCell(srow[v]||0, irow[v]||0));
+      arr.forEach((v,i)=>tot[i]+=v);
+      return {labels:[f], blocks:[withTotal(arr)]};
     });
-    const freqs = [...new Set([...Object.keys(install), ...Object.keys(stockAll)])].sort((a,b)=>a.localeCompare(b,'ru',{numeric:true}));
-    if (!freqs.length) return '<div class="empty">Нет данных по частоте</div>';
-
-    function simpleTable(title, obj, extraRow){
-      let h = `<h3>${title}</h3><div class="tblwrap"><table><thead><tr><th>Частота</th>${vendors.map(v=>`<th>${v}</th>`).join('')}<th>Итого</th></tr></thead><tbody>`;
-      const tot = {};
-      freqs.forEach(f=>{
-        const row = obj[f]||{};
-        let t=0; const cells = vendors.map(v=>{ const val=row[v]||0; t+=val; tot[v]=(tot[v]||0)+val; return `<td>${fmt(val)}</td>`; }).join('');
-        h += `<tr><td>${f}</td>${cells}<td><b>${fmt(t)}</b></td></tr>`;
-      });
-      const grand = vendors.reduce((s,v)=>s+(tot[v]||0),0);
-      h += `<tr><td><b>Итого</b></td>${vendors.map(v=>`<td><b>${fmt(tot[v]||0)}</b></td>`).join('')}<td><b>${fmt(grand)}</b></td></tr>`;
-      if (extraRow) h += extraRow(tot, grand);
-      h += `</tbody></table></div>`;
-      return {html:h, tot, grand};
-    }
-    function forecastTable(title, stockObj){
-      let h = `<h3>${title}</h3><div class="tblwrap"><table><thead><tr><th>Частота</th>${vendors.map(v=>`<th>${v}</th>`).join('')}<th>Итого</th></tr></thead><tbody>`;
-      const tot = {};
-      freqs.forEach(f=>{
-        const srow = stockObj[f]||{}, irow = install[f]||{};
-        let t=0; const cells = vendors.map(v=>{ const val=forecastCell(srow[v]||0, irow[v]||0); t+=val; tot[v]=(tot[v]||0)+val; return `<td>${fmt(val)}</td>`; }).join('');
-        h += `<tr><td>${f}</td>${cells}<td><b>${fmt(t)}</b></td></tr>`;
-      });
-      const grand = vendors.reduce((s,v)=>s+(tot[v]||0),0);
-      h += `<tr><td><b>Итого</b></td>${vendors.map(v=>`<td><b>${fmt(tot[v]||0)}</b></td>`).join('')}<td><b>${fmt(grand)}</b></td></tr></tbody></table></div>`;
-      return h;
-    }
-
-    const instT = simpleTable('Факт установлено (наряды «Расход»)', install, (tot,grand)=>
-      `<tr><td><b>Итого среднее за ${fullMonths} мес.</b></td>${vendors.map(v=>`<td>${fmt((tot[v]||0)/fullMonths)}</td>`).join('')}<td><b>${fmt(grand/fullMonths)}</b></td></tr>`);
-    const molT = simpleTable('Остаток — МОЛ', stockMOL);
-    const csT = simpleTable('Остаток — ЦС', stockCS);
-    const allT = simpleTable('Остаток — ЦС + МОЛ', stockAll);
-
-    return instT.html + molT.html + csT.html + allT.html +
-      forecastTable('Прогноз на конец года — с учётом МОЛ+ЦС', stockAll) +
-      forecastTable('Прогноз на конец года — только ЦС', stockCS);
+    const totalsRow = {labels:['Итого'], blocks:[withTotal(tot)]};
+    return {title, rowLabelHeaders:['Частота'], groups:[{label:null, vendors}], rows:dataRows, totalsRow, extraRows:[]};
   }
 
-  box.innerHTML = `<h2 style="font-size:15px;margin:6px 0 10px">По РДТ / регионам</h2>${buildRegionSection()}`+
-                   `<h2 style="font-size:15px;margin:20px 0 10px">По частоте</h2>${buildFreqSection()}`;
+  const regionTables = [buildRegionTable('МОЛ + ЦС', false), buildRegionTable('Только ЦС', true)];
+
+  const install = {};
+  installRows.forEach(r=>{
+    const f = r.freq || '—';
+    (install[f] = install[f]||{})[r.vendor] = (install[f]?.[r.vendor]||0) + r.qty;
+  });
+  const stockAll={}, stockCS={}, stockMOL={};
+  stockRows.forEach(r=>{
+    const f = r.freq || '—';
+    (stockAll[f] = stockAll[f]||{})[r.vendor] = (stockAll[f]?.[r.vendor]||0) + r.qty;
+    const t = r.tip==='ЦС' ? stockCS : stockMOL;
+    (t[f] = t[f]||{})[r.vendor] = (t[f]?.[r.vendor]||0) + r.qty;
+  });
+  const freqs = [...new Set([...Object.keys(install), ...Object.keys(stockAll)])].sort((a,b)=>a.localeCompare(b,'ru',{numeric:true}));
+
+  const freqTables = freqs.length ? [
+    buildFreqTable('Факт установлено (наряды «Расход»)', install, freqs, `Итого среднее за ${fullMonths} мес.`),
+    buildFreqTable('Остаток — МОЛ', stockMOL, freqs),
+    buildFreqTable('Остаток — ЦС', stockCS, freqs),
+    buildFreqTable('Остаток — ЦС + МОЛ', stockAll, freqs),
+    buildFreqForecastTable('Прогноз на конец года — с учётом МОЛ+ЦС', stockAll, install, freqs),
+    buildFreqForecastTable('Прогноз на конец года — только ЦС', stockCS, install, freqs)
+  ] : null;
+
+  window._lastOntForecast = {regionTables, freqTables};
+
+  box.innerHTML = `<h2 style="font-size:15px;margin:6px 0 10px">По РДТ / регионам</h2>${regionTables.map(ontSpecToHtml).join('')}`+
+    (freqTables ? `<h2 style="font-size:15px;margin:20px 0 10px">По частоте</h2>${freqTables.map(ontSpecToHtml).join('')}` : `<h2 style="font-size:15px;margin:20px 0 10px">По частоте</h2><div class="empty">Нет данных по частоте</div>`);
 }
 
 // ══════════════════════════════════════════════════════════════
